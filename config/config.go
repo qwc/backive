@@ -23,6 +23,10 @@ type Settings struct {
 	userMountPoint   string
 }
 
+type Devices map[string]Device
+
+type Backups map[string]Backup
+
 func loadDevice() {
 	v1 := viper.New()
 	v1.SetConfigName("devices")
