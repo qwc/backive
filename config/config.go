@@ -1,34 +1,46 @@
 package config
 
-import "github.com/spf13/viper"
+import (
+	"fmt"
+	"github.com/qwc/backive/core"
 
-type Device struct {
-	name      string
-	uuid      string
-	ownerUser string
-}
+	"github.com/spf13/viper"
+)
 
-type Backup struct {
-	name             string
-	targetDeviceName string
-	targetDir        string
-	sourceDir        string
-	scriptPath       string
-	frequency        int
-	exeUser          string
+type Configuration struct {
+	Settings Settings `mapstructure:"settings"`
+	Devices  Devices  `mapstructure:"devices"`
+	Backups  Backups  `mapstructure:"backups"`
 }
 
 type Settings struct {
-	systemMountPoint string
-	userMountPoint   string
+	SystemMountPoint string `mapstructure:"systemMountPoint"`
+	UserMountPoint   string `mapstructure:"userMountPoint"`
 }
 
-type Devices map[string]Device
+type Devices map[string]core.Device
 
-type Backups map[string]Backup
+type Backups map[string]core.Backup
 
-func loadDevice() {
-	v1 := viper.New()
-	v1.SetConfigName("devices")
+func CreateViper() *viper.Viper {
+	vconfig := viper.New()
+	vconfig.SetConfigName("backive")
+	vconfig.SetConfigType("yaml")
+	vconfig.AddConfigPath("/etc/backive/") // system config
+	vconfig.AddConfigPath("$HOME/.backive/")
+	vconfig.AddConfigPath(".")
+	return vconfig
+}
 
+func Load() *Configuration {
+	vconfig := CreateViper()
+	if err := vconfig.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			panic(fmt.Errorf("Fatal: No config file could be found!"))
+		}
+		panic(fmt.Errorf("Fatal error config file: %w \n", err))
+	}
+
+	//Unmarshal all into Configuration type
+	return nil
 }
