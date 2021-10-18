@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+
 	"github.com/qwc/backive/core"
 
 	"github.com/spf13/viper"
@@ -41,6 +42,13 @@ func Load() *Configuration {
 		panic(fmt.Errorf("Fatal error config file: %w \n", err))
 	}
 
+	var cfg *Configuration
+
+	err := vconfig.Unmarshal(cfg)
+	if err != nil {
+		fmt.Printf("Error occured when loading config: %v\n", err)
+		panic("No configuration available!")
+	}
 	//Unmarshal all into Configuration type
-	return nil
+	return cfg
 }
