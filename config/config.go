@@ -8,6 +8,11 @@ import (
 	"github.com/spf13/viper"
 )
 
+var (
+	config  *Configuration
+	vconfig *viper.Viper
+)
+
 type Configuration struct {
 	Settings Settings `mapstructure:"settings"`
 	Devices  Devices  `mapstructure:"devices"`
@@ -44,11 +49,25 @@ func Load() *Configuration {
 
 	var cfg *Configuration
 
+	//Unmarshal all into Configuration type
 	err := vconfig.Unmarshal(cfg)
 	if err != nil {
 		fmt.Printf("Error occured when loading config: %v\n", err)
 		panic("No configuration available!")
 	}
-	//Unmarshal all into Configuration type
+	for k, v := range cfg.Backups {
+		v.Name = k
+	}
+	for k, v := range cfg.Devices {
+		v.Name = k
+	}
 	return cfg
+}
+
+func Init() {
+	config = Load()
+}
+
+func Get() *Configuration {
+	return config
 }
