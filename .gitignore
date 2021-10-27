@@ -15,4 +15,6 @@
 # vendor/
 example
 
+*.vim
+
 dist/
