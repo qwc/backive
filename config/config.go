@@ -13,21 +13,26 @@ var (
 	vconfig *viper.Viper
 )
 
+// Configuration struct holding the settings and config items of devices and backups
 type Configuration struct {
 	Settings Settings `mapstructure:"settings"`
 	Devices  Devices  `mapstructure:"devices"`
 	Backups  Backups  `mapstructure:"backups"`
 }
 
+// Settings struct holds the global configuration items
 type Settings struct {
 	SystemMountPoint string `mapstructure:"systemMountPoint"`
 	UserMountPoint   string `mapstructure:"userMountPoint"`
 }
 
+// Devices is nothing else than a name to Device type mapping
 type Devices map[string]core.Device
 
+// Backups is nothing else than a name to Backup type mapping
 type Backups map[string]core.Backup
 
+// CreateViper creates a viper instance for usage later
 func CreateViper() *viper.Viper {
 	vconfig := viper.New()
 	vconfig.SetConfigName("backive")
@@ -38,6 +43,7 @@ func CreateViper() *viper.Viper {
 	return vconfig
 }
 
+// Load loads the configuration from the disk
 func Load() *Configuration {
 	vconfig := CreateViper()
 	if err := vconfig.ReadInConfig(); err != nil {
@@ -64,10 +70,12 @@ func Load() *Configuration {
 	return cfg
 }
 
+// Init Initializes the configuration
 func Init() {
 	config = Load()
 }
 
+// Get returns the Configuration global variable
 func Get() *Configuration {
 	return config
 }

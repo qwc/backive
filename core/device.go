@@ -7,8 +7,10 @@ type Device struct {
 	OwnerUser string `mapstructure:"owner,omitempty"`
 }
 
+// Mount will mount a device
 func (d Device) Mount() {
 }
 
+// Unmount will unmount a device
 func (d Device) Unmount() {
 }
