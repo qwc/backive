@@ -48,9 +48,9 @@ func Load() *Configuration {
 	vconfig := CreateViper()
 	if err := vconfig.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			panic(fmt.Errorf("Fatal: No config file could be found!"))
+			panic(fmt.Errorf("Fatal: No config file could be found"))
 		}
-		panic(fmt.Errorf("Fatal error config file: %w \n", err))
+		panic(fmt.Errorf("Fatal error config file: %w ", err))
 	}
 
 	var cfg *Configuration
