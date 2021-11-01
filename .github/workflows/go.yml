@@ -17,7 +17,10 @@ jobs:
       uses: actions/setup-go@v2
       with:
         go-version: 1.17
-
+    - name: Install GoReleaser
+      uses: goreleaser/goreleaser-action@v2.7.0
+      with:
+        install-only: true
     - name: Go-linter
       # You may pin to the exact commit or the version.
       # uses: Jerome1337/golint-action@c5d17206a0a436bbf1edb91e314ed084f7c57589
@@ -26,7 +29,7 @@ jobs:
         # Path used by golint command
         # golint-path: # optional, default is ./...
     - name: Build
-      run: go build -v ./...
+      run: goreleaser build --snapshot --rm-dist
     - name: Test
       run: go test -v ./...
     - name: GoReleaser Action
