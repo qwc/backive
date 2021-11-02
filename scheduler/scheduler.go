@@ -71,7 +71,6 @@ func LastRun(backup string) (time.Time, error) {
 	if ok {
 		var t = time.Time(runs[backup].runlist.Front().Value.(time.Time))
 		return t, nil
-	} else {
-		return time.Unix(0, 0), fmt.Errorf("Backup name not found and therefore has never run!")
 	}
+	return time.Unix(0, 0), fmt.Errorf("Backup name not found and therefore has never run")
 }
