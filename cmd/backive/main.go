@@ -22,4 +22,5 @@ func main() {
 	// unmount device
 	// end loop
 
+	// cleanup if anything is there to cleanup
 }
