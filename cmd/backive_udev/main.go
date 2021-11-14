@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// main Simple main function for the udev callback executable, registered with the udev service.
 func main() {
 	f, err := os.OpenFile("/tmp/backive/udev.log", os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
