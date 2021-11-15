@@ -47,8 +47,7 @@ func process() {
 		if err != nil && err != io.EOF {
 			panic(err)
 		}
-		app := buf[0:nr]
-		data = append(data, app)
+		data = append(data, buf[0:nr]...)
 		if err == io.EOF {
 			break
 		}
