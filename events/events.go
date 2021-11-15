@@ -8,14 +8,16 @@ import (
 
 var ls net.Listener
 var done <-chan struct{}
-var callbacks := make([]func(map[string]string), 3)
+var callbacks []func(map[string]string)
 
 // Init initializes the unix socket.
 func Init(socketPath string) {
-	ls, err = net.Listen(socketPath)
+	var err error
+	ls, err = net.Listen("unix", socketPath)
 	if err != nil {
 		panic(err)
 	}
+	callbacks = make([]func(map[string]string), 3)
 }
 
 // Listen starts the event loop.
@@ -28,13 +30,13 @@ func Listen() {
 }
 
 // RegisterCallback adds a function to the list of callback functions for processing of events.
-func RegisterCallback(cb func(map[string]string)){
-	append(callbacks, cb)
+func RegisterCallback(cb func(map[string]string)) {
+	callbacks = append(callbacks, cb)
 }
 
 // process processes each and every unix socket event, Unmarshals the json data and calls the list of callbacks.
 func process() {
-	client, err = ls.Accept()
+	client, err := ls.Accept()
 	if err != nil {
 		panic(err)
 	}
@@ -45,17 +47,18 @@ func process() {
 		if err != nil && err != io.EOF {
 			panic(err)
 		}
-		append(data, buf[0:nr])
+		app := buf[0:nr]
+		data = append(data, app)
 		if err == io.EOF {
 			break
 		}
 	}
 	env := map[string]string{}
-	err := json.Unmarshal(data, &env)
-	if err != nil {
-		panic(err)
+	errjson := json.Unmarshal(data, &env)
+	if errjson != nil {
+		panic(errjson)
 	}
-	for _, v = range(callbacks) {
+	for _, v := range callbacks {
 		v(env)
 	}
 }
