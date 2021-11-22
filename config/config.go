@@ -3,7 +3,8 @@ package config
 import (
 	"fmt"
 
-	"github.com/qwc/backive/core"
+	"github.com/qwc/backive/backup"
+	"github.com/qwc/backive/device"
 
 	"github.com/spf13/viper"
 )
@@ -27,10 +28,10 @@ type Settings struct {
 }
 
 // Devices is nothing else than a name to Device type mapping
-type Devices map[string]core.Device
+type Devices map[string]device.Device
 
 // Backups is nothing else than a name to Backup type mapping
-type Backups map[string]core.Backup
+type Backups map[string]backup.Backup
 
 // CreateViper creates a viper instance for usage later
 func CreateViper() *viper.Viper {

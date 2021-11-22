@@ -1,4 +1,4 @@
-package core
+package device
 
 // Device represents a device, with a name easy to remember and the UUID to identify it, optionally an owner.
 type Device struct {

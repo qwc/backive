@@ -1,27 +1,17 @@
-package core
+package runner
 
 import (
 	"fmt"
 	"os"
 
+	"github.com/qwc/backive/backup"
 	"github.com/qwc/backive/config"
 )
 
-// Backup contains all necessary information for executing a configured backup.
-type Backup struct {
-	Name         string `mapstructure:",omitempty"`
-	TargetDevice string `mapstructure:"targetDevice"`
-	TargetDir    string `mapstructure:"targetDir"`
-	SourceDir    string `mapstructure:"sourceDir"`
-	ScriptPath   string `mapstructure:"scriptPath"`
-	Frequency    int    `mapstructure:"frequency"`
-	ExeUser      string `mapstructure:"user,omitempty"`
-}
-
 // Run runs the backup script with appropriate rights.
-func (b Backup) Run() error {
+func Run(b backup.Backup) error {
 	cfg := config.Get()
-	if cfg.Devices[b.Name].isMounted() {
+	if cfg.Devices[b.Name].IsMounted() {
 		checkExistence := func(path string, name string) error {
 			if _, err := os.Stat(path); err != nil {
 				if os.IsNotExist(err) {
