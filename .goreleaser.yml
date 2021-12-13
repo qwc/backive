@@ -8,7 +8,7 @@ before:
     - go generate ./...
 builds:
   - main: ./cmd/backive/main.go
-    id: backive
+    id: "backive"
     binary: backive
     env:
       - CGO_ENABLED=0
@@ -19,7 +19,7 @@ builds:
       # - windows
       #      - darwin
   - main: ./cmd/backive_udev/main.go
-    id: backive_udev
+    id: "backive_udev"
     binary: backive_udev
     goarch:
       - amd64
@@ -30,7 +30,7 @@ builds:
       # - windows
       #      - darwin
   - main: ./cmd/backive_ui/main.go
-    id: backive_ui
+    id: "backive_ui"
     binary: backive_ui
     env:
       - CGO_ENABLED=0

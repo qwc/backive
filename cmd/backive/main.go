@@ -1,16 +1,35 @@
-package backive
+package main
 
 import (
 	"container/list"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"time"
 
 	"github.com/spf13/viper"
 )
+
+var logfile os.File
+
+func setupLogging() {
+	logdir := "/var/log/backive"
+	logname := "/var/log/backive/backive.log"
+	if _, err := os.Stat(logdir); err == nil {
+		//ignore
+	} else if os.IsNotExist(err) {
+		os.MkdirAll(logdir, 0755)
+	}
+	logfile, err := os.OpenFile(logname, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
+	if err != nil {
+		fmt.Println("Error creating logfile!")
+		panic("no logfile no info")
+	}
+	log.SetOutput(logfile)
+}
 
 // Global variables for backive
 var (
@@ -41,11 +60,16 @@ func (d Database) Save() {
 
 // LoadDb loads the database
 func (d Database) Load() {
-	data, err := os.ReadFile(d.path)
-	if err != nil {
-		panic(err)
+	if _, err := os.Stat(d.path); err == nil {
+		data, rferr := os.ReadFile(d.path)
+		if rferr != nil {
+			panic(rferr)
+		}
+		json.Unmarshal(data, &d.data)
+	} else if os.IsNotExist(err) {
+		// no data
+
 	}
-	json.Unmarshal(data, &d.data)
 }
 
 // Device represents a device, with a name easy to remember and the UUID to identify it, optionally an owner.
@@ -88,7 +112,7 @@ type Configuration struct {
 	Settings Settings `mapstructure:"settings"`
 	Devices  Devices  `mapstructure:"devices"`
 	Backups  Backups  `mapstructure:"backups"`
-	vconfig  *viper.Viper
+	vconfig  viper.Viper
 }
 
 // Settings struct holds the global configuration items
@@ -107,26 +131,30 @@ type Backups map[string]Backup
 // CreateViper creates a viper instance for usage later
 func (c Configuration) CreateViper() {
 	vconfig := viper.New()
+	//	vconfig.Debug()
 	vconfig.SetConfigName("backive")
+	vconfig.SetConfigFile("backive.yml")
+	//vconfig.SetConfigFile("backive.yaml")
 	vconfig.SetConfigType("yaml")
-	vconfig.AddConfigPath("/etc/backive/") // system config
-	vconfig.AddConfigPath("$HOME/.backive/")
+	vconfig.AddConfigPath("/etc/backive") // system config
+	//vconfig.AddConfigPath("$HOME/.backive/")
 	vconfig.AddConfigPath(".")
-	c.vconfig = vconfig
+	c.vconfig = *vconfig
 }
 
 // Load loads the configuration from the disk
 func (c Configuration) Load() {
 	c.CreateViper()
-	if err := c.vconfig.ReadInConfig(); err != nil {
+	vc := c.vconfig
+	if err := vc.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			panic(fmt.Errorf("Fatal: No config file could be found"))
+			panic(fmt.Errorf("Fatal: No config file could be found: %w", err))
 		}
 		panic(fmt.Errorf("Fatal error config file: %w ", err))
 	}
 
 	//Unmarshal all into Configuration type
-	err := c.vconfig.Unmarshal(c)
+	err := vc.Unmarshal(c)
 	if err != nil {
 		fmt.Printf("Error occured when loading config: %v\n", err)
 		panic("No configuration available!")
@@ -173,24 +201,25 @@ func (eh EventHandler) RegisterCallback(cb func(map[string]string)) {
 func (eh EventHandler) process() {
 	client, err := eh.ls.Accept()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	data := make([]byte, 2048)
 	for {
 		buf := make([]byte, 512)
 		nr, err := client.Read(buf)
 		if err != nil && err != io.EOF {
-			panic(err)
+			log.Fatal(err)
 		}
 		data = append(data, buf[0:nr]...)
 		if err == io.EOF {
 			break
 		}
 	}
+	log.Println(data)
 	env := map[string]string{}
 	errjson := json.Unmarshal(data, &env)
 	if errjson != nil {
-		panic(errjson)
+		log.Fatal(errjson)
 	}
 	for _, v := range eh.callbacks {
 		v(env)
@@ -296,8 +325,9 @@ func (r Runs) LastRun(b Backup) (time.Time, error) {
 }
 
 func main() {
+	setupLogging()
 	// TODO: do proper signal handling!
-	fmt.Println("backive starting up...")
+	log.Println("backive starting up...")
 	// find and load config
 	database.Load()
 	config.Load()
@@ -312,5 +342,5 @@ func main() {
 
 	// cleanup if anything is there to cleanup
 	database.Save()
-	fmt.Println("backive shuting down.")
+	log.Println("backive shuting down.")
 }
