@@ -46,7 +46,7 @@ type Database struct {
 }
 
 // SaveDb saves the database
-func (d Database) Save() {
+func (d *Database) Save() {
 	jsonstr, merr := json.Marshal(d.data)
 	if merr != nil {
 		panic(merr)
@@ -59,7 +59,7 @@ func (d Database) Save() {
 }
 
 // LoadDb loads the database
-func (d Database) Load() {
+func (d *Database) Load() {
 	if _, err := os.Stat(d.path); err == nil {
 		data, rferr := os.ReadFile(d.path)
 		if rferr != nil {
@@ -81,18 +81,18 @@ type Device struct {
 }
 
 // Mount will mount a device
-func (d Device) Mount() {
+func (d *Device) Mount() {
 
 	d.isMounted = true
 }
 
 // Unmount will unmount a device
-func (d Device) Unmount() {
+func (d *Device) Unmount() {
 
 	d.isMounted = false
 }
 
-func (d Device) IsMounted() bool {
+func (d *Device) IsMounted() bool {
 	return d.isMounted
 }
 
@@ -112,7 +112,7 @@ type Configuration struct {
 	Settings Settings `mapstructure:"settings"`
 	Devices  Devices  `mapstructure:"devices"`
 	Backups  Backups  `mapstructure:"backups"`
-	vconfig  viper.Viper
+	vconfig  *viper.Viper
 }
 
 // Settings struct holds the global configuration items
@@ -129,21 +129,21 @@ type Devices map[string]Device
 type Backups map[string]Backup
 
 // CreateViper creates a viper instance for usage later
-func (c Configuration) CreateViper() {
+func (c *Configuration) CreateViper() {
 	vconfig := viper.New()
 	//	vconfig.Debug()
 	vconfig.SetConfigName("backive")
 	vconfig.SetConfigFile("backive.yml")
 	//vconfig.SetConfigFile("backive.yaml")
 	vconfig.SetConfigType("yaml")
-	vconfig.AddConfigPath("/etc/backive") // system config
+	vconfig.AddConfigPath("/etc/backive/") // system config
 	//vconfig.AddConfigPath("$HOME/.backive/")
 	vconfig.AddConfigPath(".")
-	c.vconfig = *vconfig
+	c.vconfig = vconfig
 }
 
 // Load loads the configuration from the disk
-func (c Configuration) Load() {
+func (c *Configuration) Load() {
 	c.CreateViper()
 	vc := c.vconfig
 	if err := vc.ReadInConfig(); err != nil {
@@ -174,7 +174,7 @@ type EventHandler struct {
 }
 
 // Init initializes the unix socket.
-func (eh EventHandler) Init(socketPath string) {
+func (eh *EventHandler) Init(socketPath string) {
 	var err error
 	eh.ls, err = net.Listen("unix", socketPath)
 	if err != nil {
@@ -184,7 +184,7 @@ func (eh EventHandler) Init(socketPath string) {
 }
 
 // Listen starts the event loop.
-func (eh EventHandler) Listen() {
+func (eh *EventHandler) Listen() {
 	for {
 		go func() {
 			eh.process()
@@ -193,12 +193,12 @@ func (eh EventHandler) Listen() {
 }
 
 // RegisterCallback adds a function to the list of callback functions for processing of events.
-func (eh EventHandler) RegisterCallback(cb func(map[string]string)) {
+func (eh *EventHandler) RegisterCallback(cb func(map[string]string)) {
 	eh.callbacks = append(eh.callbacks, cb)
 }
 
 // process processes each and every unix socket event, Unmarshals the json data and calls the list of callbacks.
-func (eh EventHandler) process() {
+func (eh *EventHandler) process() {
 	client, err := eh.ls.Accept()
 	if err != nil {
 		log.Fatal(err)
@@ -227,9 +227,9 @@ func (eh EventHandler) process() {
 }
 
 // Run runs the backup script with appropriate rights.
-func (b Backup) Run() error {
+func (b *Backup) Run() error {
 	cfg := config
-	if cfg.Devices[b.Name].IsMounted() {
+	if dev := cfg.Devices[b.Name]; dev.IsMounted() {
 		checkExistence := func(path string, name string) error {
 			if _, err := os.Stat(path); err != nil {
 				if os.IsNotExist(err) {
@@ -269,15 +269,18 @@ type Runs struct {
 }
 
 // Load loads the data from the json database
-func (r Runs) Load(db Database) {
-	runerr := json.Unmarshal([]byte(db.data["runs"]), &r.data)
-	if runerr != nil {
-		panic(runerr)
+func (r *Runs) Load(db Database) {
+	data := db.data["runs"]
+	if data != "" {
+		runerr := json.Unmarshal([]byte(db.data["runs"]), &r.data)
+		if runerr != nil {
+			panic(runerr)
+		}
 	}
 }
 
 // Save saves the data into the json database
-func (r Runs) Save(db Database) {
+func (r *Runs) Save(db Database) {
 	str, err := json.Marshal(r.data)
 	if err != nil {
 		panic(err)
@@ -286,10 +289,10 @@ func (r Runs) Save(db Database) {
 }
 
 // ShouldRun Takes a backup key and returns a bool if a backup should run now.
-func (b Backup) ShouldRun() bool {
+func (b *Backup) ShouldRun() bool {
 	freq := b.Frequency
 	// calculate time difference from last run, return true if no run has taken place
-	lr, ok := runs.LastRun(b)
+	lr, ok := runs.LastRun(*b)
 	if ok == nil {
 		dur := time.Since(lr)
 		days := dur.Hours() / 24
@@ -304,7 +307,7 @@ func (b Backup) ShouldRun() bool {
 }
 
 // RegisterRun saves a date of a backup run into the internal storage
-func (r Runs) RegisterRun(b Backup) {
+func (r *Runs) RegisterRun(b Backup) {
 	nbl, ok := r.data[b.Name]
 	if !ok {
 		nbl.runlist = list.New()
@@ -315,7 +318,7 @@ func (r Runs) RegisterRun(b Backup) {
 }
 
 // LastRun returns the time.Time of the last run of the backup given.
-func (r Runs) LastRun(b Backup) (time.Time, error) {
+func (r *Runs) LastRun(b Backup) (time.Time, error) {
 	_, ok := r.data[b.Name]
 	if ok {
 		var t = time.Time(r.data[b.Name].runlist.Front().Value.(time.Time))
