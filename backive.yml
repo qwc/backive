@@ -1,17 +1,18 @@
 devices:
   scanner-usbstick:
     uuid: 72A9-D8C5
-    mountname: scanner_usbstick
+    #mountname: scanner_usbstick
     owner: qwc
   server-backups:
     uuid: d220b335-ded9-48f5-bc03-800a3f953c34
-    mountname: server_backups
+    #mountname: server_backups
     owner: qwc
 backups:
   scanner_usbstick_test:
     user: qwc
-    target_device: scanner-usbstick
+    targetDevice: scanner-usbstick
     frequency: 0
+    scriptPath: ./testbackup.sh
     script: |
       #! /usr/bin/env bash
       #
@@ -23,9 +24,12 @@ backups:
       cp -Rv ${BACKIVE_FROM}/* ${BACKIVE_MOUNT}/${BACKIVE_TO}/
       ls -la ${BACKIVE_MOUNT}/${BACKIVE_TO}
       ls -la ${BACKIVE_MOUNT}
-    from: /home/qwc/web/worktime
-    to: worktime
-preferences:
-  mount_root: /mnt/backups
+    sourcePath: /home/qwc/web/worktime
+    targetPath: worktime
+settings:
+  systemMountPoint: /mnt/backups
+  unixSocketLocation: /tmp/backive/backive.sock
+  logLocation: /var/log/backive
+  dbLocation: /var/lib/backive
 
 
