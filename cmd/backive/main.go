@@ -47,6 +47,7 @@ var (
 	runs     Runs
 	events   EventHandler
 )
+var devsByUuid string = "/dev/disk/by-uuid"
 
 // Database is a simple string to string mapping, where arbitrary strings can be stored and safed to disk or loaded
 type Database struct {
@@ -85,24 +86,31 @@ func (d *Database) Load() {
 
 // Device represents a device, with a name easy to remember and the UUID to identify it, optionally an owner.
 type Device struct {
-	Name       string `mapstructure:",omitempty"`
-	UUID       string `mapstructure:"uuid"`
-	OwnerUser  string `mapstructure:"owner,omitempty"`
-	isMounted  bool
-	devsByUuid string "/dev/disk/by-uuid/"
+	Name      string `mapstructure:",omitempty"`
+	UUID      string `mapstructure:"uuid"`
+	OwnerUser string `mapstructure:"owner,omitempty"`
+	isMounted bool
 }
 
 // Mount will mount a device
 func (d *Device) Mount() error {
-	createDirectoryIfNotExists(config.Settings.SystemMountPoint)
-	cmd := exec.Command(
-		"mount",
-		path.Join(d.devsByUuid, d.UUID),
+	log.Printf("Mounting device %s, creating directory if it does not exist.\n", d.Name)
+	createDirectoryIfNotExists(
 		path.Join(config.Settings.SystemMountPoint, d.Name),
 	)
+	time.Sleep(3000 * time.Millisecond)
+	log.Printf("Executing mount command for %s", d.Name)
+	cmd := exec.Command(
+		"mount",
+		path.Join(devsByUuid, d.UUID),
+		path.Join(config.Settings.SystemMountPoint, d.Name),
+	)
+	cmd.Stdout = log.Writer()
+	cmd.Stderr = log.Writer()
+	log.Printf("Command to execute: %s", cmd.String())
 	err := cmd.Run()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Mounting failed with error %v", err)
 		return err
 	}
 	d.isMounted = true
@@ -111,10 +119,11 @@ func (d *Device) Mount() error {
 
 // Unmount will unmount a device
 func (d *Device) Unmount() error {
+	log.Printf("Unmounting %s", d.Name)
 	sync := exec.Command("sync")
 	syncErr := sync.Run()
 	if syncErr != nil {
-		log.Fatal(syncErr)
+		log.Println(syncErr)
 		return syncErr
 	}
 	cmd := exec.Command(
@@ -123,7 +132,7 @@ func (d *Device) Unmount() error {
 	)
 	err := cmd.Run()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 	d.isMounted = false
@@ -164,15 +173,16 @@ type Settings struct {
 }
 
 // Devices is nothing else than a name to Device type mapping
-type Devices map[string]Device
+type Devices map[string]*Device
 
 // Backups is nothing else than a name to Backup type mapping
-type Backups map[string]Backup
+type Backups map[string]*Backup
 
+// findBackupForDevice only finds the first backup which is configured for a given device.
 func (bs *Backups) findBackupForDevice(d Device) (*Backup, bool) {
 	for _, b := range *bs {
 		if d.Name == b.TargetDevice {
-			return &b, true
+			return b, true
 		}
 	}
 	return nil, false
@@ -210,10 +220,14 @@ func (c *Configuration) Load() {
 		panic("No configuration available!")
 	}
 	for k, v := range c.Backups {
+		log.Printf("Initializing backup '%s'\n", k)
 		v.Name = k
+		log.Printf("Initialized backup '%s'\n", v.Name)
 	}
 	for k, v := range c.Devices {
+		log.Printf("Initializing device '%s'\n", k)
 		v.Name = k
+		log.Printf("Initialized device '%s'\n", v.Name)
 	}
 }
 
@@ -271,7 +285,7 @@ func (eh *EventHandler) process() {
 		}
 	}
 	sdata := string(bytes.Trim(data, "\x00"))
-	log.Println(sdata)
+	//log.Println(sdata)
 	env := map[string]string{}
 	errjson := json.Unmarshal([]byte(sdata), &env)
 	if errjson != nil {
@@ -318,13 +332,27 @@ func (b *Backup) PrepareRun() error {
 
 // Run runs the backup script with appropriate rights.
 func (b *Backup) Run() error {
-	if dev, ok := config.Devices[b.Name]; ok && dev.IsMounted() {
+	log.Printf("Running backup '%s'.", b.Name)
+	dev, ok := config.Devices[b.TargetDevice]
+	if ok {
+		log.Printf("Device found: %s (%s).", dev.Name, dev.UUID)
+	} else {
+		log.Printf("Device %s not found", b.TargetDevice)
+	}
+	if ok && dev.IsMounted() {
 		// setup script environment including user to use
 		cmd := exec.Command("/usr/bin/sh", b.ScriptPath)
 		b.logger.Printf("Running backup script of '%s'", b.Name)
 		// does this work?
 		cmd.Stdout = b.logger.Writer()
 		cmd.Stderr = b.logger.Writer()
+		cmd.Env = []string{
+			fmt.Sprintf("BACKIVE_MOUNT=%s", config.Settings.SystemMountPoint),
+			fmt.Sprintf("BACKIVE_TO=%s",
+				path.Join(config.Settings.SystemMountPoint, dev.Name, b.TargetPath),
+			),
+			fmt.Sprintf("BACKIVE_FROM=%s", b.SourcePath),
+		}
 		// run script
 		err := cmd.Run()
 		if err != nil {
@@ -407,14 +435,15 @@ func (r *Runs) LastRun(b Backup) (time.Time, error) {
 
 func defaultCallback(envMap map[string]string) {
 	if action, ok := envMap["ACTION"]; ok && action == "add" {
-		var dev Device
+		var dev *Device
 		var uuid string
 		if fs_uuid, ok := envMap["ID_FS_UUID"]; !ok {
-			log.Fatalln("ID_FS_UUID not available ?!")
+			log.Println("ID_FS_UUID not available ?!")
+			return
 		} else {
 			uuid = fs_uuid
 		}
-		log.Println("Device Added")
+		log.Println("Device connected.")
 		var uuidFound bool
 		// Check the devices if the UUID is in the config
 		for _, device := range config.Devices {
@@ -424,15 +453,23 @@ func defaultCallback(envMap map[string]string) {
 			}
 		}
 		if uuidFound {
+			log.Println("Device recognized.")
+			log.Printf("Device: Name: %s, UUID: %s", dev.Name, dev.UUID)
 			dev.Mount()
-			backup, found := config.Backups.findBackupForDevice(dev)
+			log.Println("Device mounted.")
+			backup, found := config.Backups.findBackupForDevice(*dev)
+			log.Println("Searching configured backups...")
 			if found {
+				log.Println("Backup found.")
 				err := backup.CanRun()
 				if err == nil {
+					log.Println("Backup is able to run (config check passed).")
 					prepErr := backup.PrepareRun()
+					log.Println("Prepared run.")
 					if prepErr != nil {
 						log.Fatalf("Error running the backup routine: %v", err)
 					}
+					log.Println("Running backup.")
 					rerr := backup.Run()
 					if rerr != nil {
 						log.Fatalf("Error running the backup routine: %v", err)
@@ -440,6 +477,8 @@ func defaultCallback(envMap map[string]string) {
 				} else {
 					log.Fatalf("Error running the backup routine: %v", err)
 				}
+			} else {
+				log.Println("No backup found, unmounting.")
 			}
 			dev.Unmount()
 		}

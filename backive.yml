@@ -1,4 +1,7 @@
 devices:
+  dev_test:
+    uuid: 714dc1f8-00d7-44b4-b03c-b54498c7cb86
+    owner: qwc
   scanner-usbstick:
     uuid: 72A9-D8C5
     #mountname: scanner_usbstick
@@ -8,6 +11,13 @@ devices:
     #mountname: server_backups
     owner: qwc
 backups:
+  dev_test_backup:
+    user: qwc
+    targetDevice: dev_test
+    frequency: 0
+    scriptPath: ./testbackup.sh
+    sourcePath: /home/qwc/web/worktime
+    targetPath: worktime
   scanner_usbstick_test:
     user: qwc
     targetDevice: scanner-usbstick
