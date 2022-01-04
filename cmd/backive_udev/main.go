@@ -35,7 +35,7 @@ func main() {
 		log.Println(e)
 	}
 
-	c, err := net.Dial("unix", "/tmp/backive/backive.sock")
+	c, err := net.Dial("unix", "/var/local/backive/backive.sock")
 	if err != nil {
 		log.Fatalln("Could not instantiate unix socket. Aborting")
 	}

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -48,11 +49,11 @@ var (
 	events   EventHandler
 )
 var devsByUuid string = "/dev/disk/by-uuid"
+var dbPath string = "/var/lib/backive/data.json"
 
 // Database is a simple string to string mapping, where arbitrary strings can be stored and safed to disk or loaded
 type Database struct {
 	data map[string]string
-	path string "/var/lib/backive/data.json"
 }
 
 // Save saves the database
@@ -62,9 +63,9 @@ func (d *Database) Save() {
 		panic(merr)
 	}
 	log.Printf("Writing database output to file: %s", jsonstr)
-	saveDir, _ := path.Split(d.path)
+	saveDir, _ := path.Split(dbPath)
 	createDirectoryIfNotExists(saveDir)
-	err := os.WriteFile(d.path, []byte(jsonstr), 0644)
+	err := os.WriteFile(dbPath, []byte(jsonstr), 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -72,8 +73,8 @@ func (d *Database) Save() {
 
 // LoadDb loads the database
 func (d *Database) Load() {
-	if _, err := os.Stat(d.path); err == nil {
-		data, rferr := os.ReadFile(d.path)
+	if _, err := os.Stat(dbPath); err == nil {
+		data, rferr := os.ReadFile(dbPath)
 		if rferr != nil {
 			panic(rferr)
 		}
@@ -98,7 +99,7 @@ func (d *Device) Mount() error {
 	createDirectoryIfNotExists(
 		path.Join(config.Settings.SystemMountPoint, d.Name),
 	)
-	time.Sleep(3000 * time.Millisecond)
+	//time.Sleep(3000 * time.Millisecond)
 	log.Printf("Executing mount command for %s", d.Name)
 	cmd := exec.Command(
 		"mount",
@@ -160,7 +161,7 @@ type Configuration struct {
 	Settings Settings `mapstructure:"settings"`
 	Devices  Devices  `mapstructure:"devices"`
 	Backups  Backups  `mapstructure:"backups"`
-	vconfig  *viper.Viper
+	Vconfig  *viper.Viper
 }
 
 // Settings struct holds the global configuration items
@@ -199,19 +200,20 @@ func (c *Configuration) CreateViper() {
 	vconfig.AddConfigPath("/etc/backive/") // system config
 	//vconfig.AddConfigPath("$HOME/.backive/")
 	vconfig.AddConfigPath(".")
-	c.vconfig = vconfig
+	c.Vconfig = vconfig
 }
 
 // Load loads the configuration from the disk
 func (c *Configuration) Load() {
 	c.CreateViper()
-	vc := c.vconfig
+	vc := c.Vconfig
 	if err := vc.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			panic(fmt.Errorf("Fatal: No config file could be found: %w", err))
 		}
 		panic(fmt.Errorf("Fatal error config file: %w ", err))
 	}
+	log.Printf("Configuration file used: %s", vc.ConfigFileUsed())
 
 	//Unmarshal all into Configuration type
 	err := vc.Unmarshal(c)
@@ -311,22 +313,30 @@ func (b *Backup) CanRun() error {
 }
 
 func (b *Backup) PrepareRun() error {
-	createDirectoryIfNotExists(path.Join(
+	backupPath := path.Join(
 		config.Settings.SystemMountPoint,
 		b.TargetDevice,
 		b.TargetPath,
-	))
+	)
+	createDirectoryIfNotExists(backupPath)
 	// configure extra logger
 	logname := "/var/log/backive/backive.log"
 	logdir, _ := path.Split(logname)
 	createDirectoryIfNotExists(logdir)
-	logname = path.Join(logdir, b.Name)
+	logname = path.Join(logdir, b.Name) + ".log"
 	logfile, err := os.OpenFile(logname, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
-		log.Fatalln("Error creating logfile!")
+		log.Println("Error creating logfile!")
+		return err
 	}
 	writer := io.MultiWriter(logfile)
 	b.logger = log.New(writer, b.Name, log.LstdFlags)
+	cmd := exec.Command("chown", "-R", b.ExeUser, backupPath)
+	err = cmd.Run()
+	if err != nil {
+		b.logger.Printf("chown for backup directory failed: %s", err)
+		return err
+	}
 	return nil
 }
 
@@ -340,9 +350,19 @@ func (b *Backup) Run() error {
 		log.Printf("Device %s not found", b.TargetDevice)
 	}
 	if ok && dev.IsMounted() {
+		if !strings.ContainsAny(b.ScriptPath, "/") || strings.HasPrefix(b.ScriptPath, ".") {
+			//The scriptPath is a relative path, from the place of the config, so use the config as base
+			log.Printf("ERROR: Script path is relative, aborting.")
+			return fmt.Errorf("Script path is relative, aborting.")
+		}
 		// setup script environment including user to use
 		cmd := exec.Command("/usr/bin/sh", b.ScriptPath)
+		if b.ExeUser != "" {
+			cmd = exec.Command("sudo", "-E", "-u", b.ExeUser, "/usr/bin/sh", b.ScriptPath)
+		}
 		b.logger.Printf("Running backup script of '%s'", b.Name)
+		b.logger.Printf("Script is: %s", b.ScriptPath)
+		b.logger.Printf("Full command is: %s", cmd.String())
 		// does this work?
 		cmd.Stdout = b.logger.Writer()
 		cmd.Stderr = b.logger.Writer()
@@ -353,10 +373,14 @@ func (b *Backup) Run() error {
 			),
 			fmt.Sprintf("BACKIVE_FROM=%s", b.SourcePath),
 		}
+		log.Printf("Environment for process: %s", cmd.Env)
+		cmd.Dir = path.Join(config.Settings.SystemMountPoint, dev.Name)
+
+		log.Printf("About to run: %s", cmd.String())
 		// run script
 		err := cmd.Run()
 		if err != nil {
-			log.Fatalf("Backup '%s' run failed", b.Name)
+			log.Printf("Backup '%s' run failed", b.Name)
 			return err
 		}
 		return nil
@@ -467,15 +491,15 @@ func defaultCallback(envMap map[string]string) {
 					prepErr := backup.PrepareRun()
 					log.Println("Prepared run.")
 					if prepErr != nil {
-						log.Fatalf("Error running the backup routine: %v", err)
+						log.Printf("Error running the backup routine: %v", err)
 					}
 					log.Println("Running backup.")
 					rerr := backup.Run()
 					if rerr != nil {
-						log.Fatalf("Error running the backup routine: %v", err)
+						log.Printf("Error running the backup routine: %v", err)
 					}
 				} else {
-					log.Fatalf("Error running the backup routine: %v", err)
+					log.Printf("Error running the backup routine: %v", err)
 				}
 			} else {
 				log.Println("No backup found, unmounting.")

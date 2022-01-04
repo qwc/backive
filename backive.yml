@@ -15,7 +15,7 @@ backups:
     user: qwc
     targetDevice: dev_test
     frequency: 0
-    scriptPath: ./testbackup.sh
+    scriptPath: /home/qwc/source/backive/testbackup.sh
     sourcePath: /home/qwc/web/worktime
     targetPath: worktime
   scanner_usbstick_test:
@@ -38,7 +38,7 @@ backups:
     targetPath: worktime
 settings:
   systemMountPoint: /mnt/backups
-  unixSocketLocation: /tmp/backive/backive.sock
+  unixSocketLocation: /var/local/backive/backive.sock
   logLocation: /var/log/backive
   dbLocation: /var/lib/backive
 
