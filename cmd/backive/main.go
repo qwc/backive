@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"container/list"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,8 +9,10 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/viper"
@@ -120,23 +121,26 @@ func (d *Device) Mount() error {
 
 // Unmount will unmount a device
 func (d *Device) Unmount() error {
-	log.Printf("Unmounting %s", d.Name)
-	sync := exec.Command("sync")
-	syncErr := sync.Run()
-	if syncErr != nil {
-		log.Println(syncErr)
-		return syncErr
+	if d.isMounted {
+		log.Printf("Unmounting %s", d.Name)
+		sync := exec.Command("sync")
+		syncErr := sync.Run()
+		if syncErr != nil {
+			log.Println(syncErr)
+			return syncErr
+		}
+		cmd := exec.Command(
+			"umount",
+			path.Join(config.Settings.SystemMountPoint, d.Name),
+		)
+		log.Printf("About to run: %s", cmd.String())
+		err := cmd.Run()
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		d.isMounted = false
 	}
-	cmd := exec.Command(
-		"umount",
-		path.Join(config.Settings.SystemMountPoint, d.Name),
-	)
-	err := cmd.Run()
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	d.isMounted = false
 	return nil
 }
 
@@ -179,14 +183,16 @@ type Devices map[string]*Device
 // Backups is nothing else than a name to Backup type mapping
 type Backups map[string]*Backup
 
-// findBackupForDevice only finds the first backup which is configured for a given device.
-func (bs *Backups) findBackupForDevice(d Device) (*Backup, bool) {
+// findBackupsForDevice only finds the first backup which is configured for a given device.
+func (bs *Backups) findBackupsForDevice(d Device) ([]*Backup, bool) {
+	var backups []*Backup = []*Backup{}
 	for _, b := range *bs {
 		if d.Name == b.TargetDevice {
-			return b, true
+			backups = append(backups, b)
 		}
 	}
-	return nil, false
+	var ret bool = len(backups) > 0
+	return backups, ret
 }
 
 // CreateViper creates a viper instance for usage later
@@ -309,6 +315,9 @@ func (b *Backup) CanRun() error {
 	if b.ScriptPath == "" {
 		return fmt.Errorf("The setting scriptPath must exist within a backup configuration.")
 	}
+	if !b.ShouldRun() {
+		return fmt.Errorf("Frequency (days inbetween) not reached.")
+	}
 	return nil
 }
 
@@ -355,15 +364,14 @@ func (b *Backup) Run() error {
 			log.Printf("ERROR: Script path is relative, aborting.")
 			return fmt.Errorf("Script path is relative, aborting.")
 		}
-		// setup script environment including user to use
 		cmd := exec.Command("/usr/bin/sh", b.ScriptPath)
 		if b.ExeUser != "" {
+			// setup script environment including user to use
 			cmd = exec.Command("sudo", "-E", "-u", b.ExeUser, "/usr/bin/sh", b.ScriptPath)
 		}
 		b.logger.Printf("Running backup script of '%s'", b.Name)
 		b.logger.Printf("Script is: %s", b.ScriptPath)
 		b.logger.Printf("Full command is: %s", cmd.String())
-		// does this work?
 		cmd.Stdout = b.logger.Writer()
 		cmd.Stderr = b.logger.Writer()
 		cmd.Env = []string{
@@ -383,19 +391,16 @@ func (b *Backup) Run() error {
 			log.Printf("Backup '%s' run failed", b.Name)
 			return err
 		}
+		runs.RegisterRun(b)
 		return nil
 	}
 	// quit with error that the device is not available.
 	return fmt.Errorf("The device is not mounted")
 }
 
-type backupRuns struct {
-	runlist *list.List
-}
-
 // Runs contains the Data for the scheduler: mapping from backups to a list of timestamps of the last 10 backups
 type Runs struct {
-	data map[string]backupRuns
+	data map[string][]time.Time
 }
 
 // Load loads the data from the json database
@@ -426,7 +431,7 @@ func (b *Backup) ShouldRun() bool {
 	if ok == nil {
 		dur := time.Since(lr)
 		days := dur.Hours() / 24
-		if days > float64(freq) {
+		if days >= float64(freq) {
 			return true
 		}
 	}
@@ -437,13 +442,16 @@ func (b *Backup) ShouldRun() bool {
 }
 
 // RegisterRun saves a date of a backup run into the internal storage
-func (r *Runs) RegisterRun(b Backup) {
+func (r *Runs) RegisterRun(b *Backup) {
+	if r.data == nil {
+		r.data = map[string][]time.Time{}
+	}
 	nbl, ok := r.data[b.Name]
 	if !ok {
-		nbl.runlist = list.New()
-		r.data[b.Name] = nbl
+		nbl = make([]time.Time, 1)
 	}
-	nbl.runlist.PushFront(time.Now())
+	nbl = append([]time.Time{time.Now()}, nbl...)
+	r.data[b.Name] = nbl
 	r.Save(database)
 }
 
@@ -451,8 +459,11 @@ func (r *Runs) RegisterRun(b Backup) {
 func (r *Runs) LastRun(b Backup) (time.Time, error) {
 	_, ok := r.data[b.Name]
 	if ok {
-		var t = time.Time(r.data[b.Name].runlist.Front().Value.(time.Time))
-		return t, nil
+		slice := r.data[b.Name]
+		if len(slice) > 0 {
+			var t = time.Time(slice[0])
+			return t, nil
+		}
 	}
 	return time.Unix(0, 0), fmt.Errorf("Backup name not found and therefore has never run")
 }
@@ -479,32 +490,35 @@ func defaultCallback(envMap map[string]string) {
 		if uuidFound {
 			log.Println("Device recognized.")
 			log.Printf("Device: Name: %s, UUID: %s", dev.Name, dev.UUID)
-			dev.Mount()
-			log.Println("Device mounted.")
-			backup, found := config.Backups.findBackupForDevice(*dev)
+			backups, found := config.Backups.findBackupsForDevice(*dev)
 			log.Println("Searching configured backups...")
 			if found {
-				log.Println("Backup found.")
-				err := backup.CanRun()
-				if err == nil {
-					log.Println("Backup is able to run (config check passed).")
-					prepErr := backup.PrepareRun()
-					log.Println("Prepared run.")
-					if prepErr != nil {
-						log.Printf("Error running the backup routine: %v", err)
+				for _, backup := range backups {
+					log.Printf("Backup found: %s", backup.Name)
+					err := backup.CanRun()
+					if err == nil {
+						// only mount device if we really have to do a backup!
+						dev.Mount()
+						log.Println("Device mounted.")
+						log.Println("Backup is able to run (config check passed).")
+						prepErr := backup.PrepareRun()
+						log.Println("Prepared run.")
+						if prepErr != nil {
+							log.Printf("Error running the backup routine: %v", err)
+						}
+						log.Println("Running backup.")
+						rerr := backup.Run()
+						if rerr != nil {
+							log.Printf("Error running the backup routine: %v", err)
+						}
+						dev.Unmount()
+					} else {
+						log.Printf("Backup '%s' can not run (error or frequency not reached): %s", backup.Name, err)
 					}
-					log.Println("Running backup.")
-					rerr := backup.Run()
-					if rerr != nil {
-						log.Printf("Error running the backup routine: %v", err)
-					}
-				} else {
-					log.Printf("Error running the backup routine: %v", err)
 				}
 			} else {
-				log.Println("No backup found, unmounting.")
+				log.Println("No backup found.")
 			}
-			dev.Unmount()
 		}
 
 	}
@@ -512,6 +526,44 @@ func defaultCallback(envMap map[string]string) {
 
 func main() {
 	setupLogging()
+	signal_chan := make(chan os.Signal, 1)
+	signal.Notify(signal_chan,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
+	exit_chan := make(chan int)
+	go func() {
+		for {
+			s := <-signal_chan
+			switch s {
+			case syscall.SIGHUP:
+				log.Println("hungup")
+			case syscall.SIGINT:
+				log.Println("Ctrl+C, quitting.")
+				exit_chan <- 0
+			case syscall.SIGTERM:
+				log.Println("Terminating.")
+				exit_chan <- 0
+			case syscall.SIGQUIT:
+				log.Println("Quitting")
+				exit_chan <- 0
+			default:
+				log.Println("Unknown signal.")
+				exit_chan <- 1
+			}
+		}
+	}()
+	go func() {
+		// exit function only does something when the exit_chan has an item
+		// cleaning up stuff
+		code := <-exit_chan
+		database.Save()
+		log.Printf("Received exit code (%d), shutting down.", code)
+		os.Exit(code)
+	}()
+
 	// TODO: do proper signal handling!
 	log.Println("backive starting up...")
 	// find and load config
@@ -525,8 +577,4 @@ func main() {
 	events.RegisterCallback(defaultCallback)
 	// accept events
 	events.Listen()
-
-	// cleanup if anything is there to cleanup
-	database.Save()
-	log.Println("backive shuting down.")
 }
