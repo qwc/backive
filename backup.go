@@ -65,10 +65,9 @@ func (b *Backup) PrepareRun() error {
 	)
 	CreateDirectoryIfNotExists(backupPath)
 	// configure extra logger
-	logname := "/var/log/backive/backive.log"
-	logdir, _ := path.Split(logname)
+	logdir := config.Settings.LogLocation
 	CreateDirectoryIfNotExists(logdir)
-	logname = path.Join(logdir, b.Name) + ".log"
+	logname := path.Join(logdir, b.Name) + ".log"
 	logfile, err := os.OpenFile(logname, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		log.Println("Error creating logfile!")

@@ -12,7 +12,7 @@ import (
 )
 
 func setupLogging() {
-	logname := "/var/log/backive/backive.log"
+	logname := path.Join(config.Settings.LogLocation, "backive.log")
 	logdir, _ := path.Split(logname)
 	backive.CreateDirectoryIfNotExists(logdir)
 	logfile, err := os.OpenFile(logname, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
@@ -87,7 +87,6 @@ func defaultCallback(envMap map[string]string) {
 }
 
 func main() {
-	setupLogging()
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan,
 		syscall.SIGHUP,
@@ -131,6 +130,7 @@ func main() {
 	// find and load config
 	database.Load()
 	config.Load()
+	setupLogging()
 	backive.Init(config, database)
 
 	// init scheduler and check for next needed runs?
