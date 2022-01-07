@@ -34,12 +34,12 @@ func defaultCallback(envMap map[string]string) {
 	if action, ok := envMap["ACTION"]; ok && action == "add" {
 		var dev *backive.Device
 		var uuid string
-		if fs_uuid, ok := envMap["ID_FS_UUID"]; !ok {
+		fsUUID, ok := envMap["ID_FS_UUID"]
+		if !ok {
 			log.Println("ID_FS_UUID not available ?!")
 			return
-		} else {
-			uuid = fs_uuid
 		}
+		uuid = fsUUID
 		log.Println("Device connected.")
 		var uuidFound bool
 		// Check the devices if the UUID is in the config
@@ -88,39 +88,39 @@ func defaultCallback(envMap map[string]string) {
 
 func main() {
 	setupLogging()
-	signal_chan := make(chan os.Signal, 1)
-	signal.Notify(signal_chan,
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan,
 		syscall.SIGHUP,
 		syscall.SIGINT,
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
 	)
-	exit_chan := make(chan int)
+	exitChan := make(chan int)
 	go func() {
 		for {
-			s := <-signal_chan
+			s := <-signalChan
 			switch s {
 			case syscall.SIGHUP:
 				log.Println("hungup")
 			case syscall.SIGINT:
 				log.Println("Ctrl+C, quitting.")
-				exit_chan <- 0
+				exitChan <- 0
 			case syscall.SIGTERM:
 				log.Println("Terminating.")
-				exit_chan <- 0
+				exitChan <- 0
 			case syscall.SIGQUIT:
 				log.Println("Quitting")
-				exit_chan <- 0
+				exitChan <- 0
 			default:
 				log.Println("Unknown signal.")
-				exit_chan <- 1
+				exitChan <- 1
 			}
 		}
 	}()
 	go func() {
 		// exit function only does something when the exit_chan has an item
 		// cleaning up stuff
-		code := <-exit_chan
+		code := <-exitChan
 		database.Save()
 		log.Printf("Received exit code (%d), shutting down.", code)
 		os.Exit(code)

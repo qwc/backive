@@ -11,14 +11,14 @@ import (
 
 // main Simple main function for the udev callback executable, registered with the udev service.
 func main() {
-	udev_logdir := "/var/log/backive"
-	udev_logname := "/var/log/backive/udev.log"
-	if _, err := os.Stat(udev_logdir); err == nil {
+	udevLogdir := "/var/log/backive"
+	udevLogname := "/var/log/backive/udev.log"
+	if _, err := os.Stat(udevLogdir); err == nil {
 		//ignore
 	} else if os.IsNotExist(err) {
-		os.MkdirAll(udev_logdir, 0755)
+		os.MkdirAll(udevLogdir, 0755)
 	}
-	f, err := os.OpenFile(udev_logname, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
+	f, err := os.OpenFile(udevLogname, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		fmt.Println("Error creating logfile!")
 		panic("no logfile no info")
