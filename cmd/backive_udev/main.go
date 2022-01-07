@@ -34,12 +34,16 @@ func main() {
 		env[pair[0]] = pair[1]
 		log.Println(e)
 	}
+	message := map[string]interface{}{}
+
+	message["request"] = "udev"
+	message["data"] = env
 
 	c, err := net.Dial("unix", "/var/local/backive/backive.sock")
 	if err != nil {
 		log.Fatalln("Could not instantiate unix socket. Aborting")
 	}
-	jsonstr, err := json.Marshal(env)
+	jsonstr, err := json.Marshal(message)
 	if err != nil {
 		log.Fatalln("Could not convert to json. Aborting")
 	}

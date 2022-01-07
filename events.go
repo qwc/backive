@@ -65,8 +65,14 @@ func (eh *EventHandler) process() {
 	}
 	sdata := string(bytes.Trim(data, "\x00"))
 	//log.Println(sdata)
-	env := map[string]string{}
-	errjson := json.Unmarshal([]byte(sdata), &env)
+	var message map[string]interface{}
+	errjson := json.Unmarshal([]byte(sdata), &message)
+	var env = map[string]string{}
+	if message["request"] == "udev" {
+		for k, v := range message["data"].(map[string]interface{}) {
+			env[k] = v.(string)
+		}
+	}
 	if errjson != nil {
 		log.Fatal(errjson)
 	}
