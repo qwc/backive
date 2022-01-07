@@ -1,7 +1,7 @@
 name: Go
 
 on: 
-  tag
+  release
 
 jobs:
 
@@ -26,6 +26,6 @@ jobs:
         # Path used by golint command
         # golint-path: # optional, default is ./...
     - name: Build
-      run: goreleaser build --snapshot --rm-dist
+      run: goreleaser
     - name: Test
       run: go test -v ./...
