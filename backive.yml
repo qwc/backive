@@ -14,10 +14,11 @@ backups:
   dev_test_backup:
     user: qwc
     targetDevice: dev_test
-    frequency: 0
+    frequency: 2
     scriptPath: /home/qwc/source/backive/testbackup.sh
     sourcePath: /home/qwc/web/worktime
     targetPath: worktime
+    label: "Development test backup"
   scanner_usbstick_test:
     user: qwc
     targetDevice: scanner-usbstick
