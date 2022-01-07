@@ -12,7 +12,7 @@ type Database struct {
 	data map[string]string
 }
 
-var dbPath string = "/var/lib/backive/data.json"
+var dbPath = "/var/lib/backive/data.json"
 
 // Save saves the database
 func (d *Database) Save() {
@@ -29,7 +29,7 @@ func (d *Database) Save() {
 	}
 }
 
-// LoadDb loads the database
+// Load loads the database
 func (d *Database) Load() {
 	if _, err := os.Stat(dbPath); err == nil {
 		data, rferr := os.ReadFile(dbPath)
@@ -37,8 +37,7 @@ func (d *Database) Load() {
 			panic(rferr)
 		}
 		json.Unmarshal(data, &d.data)
-	} else if os.IsNotExist(err) {
+	} /*else if os.IsNotExist(err) {
 		// no data
-
-	}
+	}*/
 }

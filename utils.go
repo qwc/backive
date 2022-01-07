@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+// CreateDirectoryIfNotExists Checks for a directory string and creates the directory if it does not exist, must be a absolute path.
 func CreateDirectoryIfNotExists(dir string) {
 	if _, err := os.Stat(dir); err == nil {
 		//ignore

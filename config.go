@@ -44,9 +44,9 @@ func (c *Configuration) Load() {
 	vc := c.Vconfig
 	if err := vc.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			panic(fmt.Errorf("Fatal: No config file could be found: %w", err))
+			panic(fmt.Errorf("fatal: No config file could be found: %w", err))
 		}
-		panic(fmt.Errorf("Fatal error config file: %w ", err))
+		panic(fmt.Errorf("fatal error config file: %w ", err))
 	}
 	log.Printf("Configuration file used: %s", vc.ConfigFileUsed())
 

@@ -9,9 +9,10 @@ import (
 	"path"
 )
 
+// EventHandler holds the necessary elements to get an eventhandler setup and working.
 type EventHandler struct {
-	ls        net.Listener
-	done      <-chan struct{}
+	ls net.Listener
+	//done      <-chan struct{}
 	callbacks []func(map[string]string)
 }
 

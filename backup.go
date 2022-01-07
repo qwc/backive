@@ -28,33 +28,35 @@ type Backup struct {
 // Backups is nothing else than a name to Backup type mapping
 type Backups map[string]*Backup
 
-// findBackupsForDevice only finds the first backup which is configured for a given device.
+// FindBackupsForDevice only finds the first backup which is configured for a given device.
 func (bs *Backups) FindBackupsForDevice(d Device) ([]*Backup, bool) {
-	var backups []*Backup = []*Backup{}
+	var backups = []*Backup{}
 	for _, b := range *bs {
 		if d.Name == b.TargetDevice {
 			backups = append(backups, b)
 		}
 	}
-	var ret bool = len(backups) > 0
+	var ret = len(backups) > 0
 	return backups, ret
 }
 
+// CanRun Checks the configuration items required and checks the frequency setting with the run database if a Backup should run.
 func (b *Backup) CanRun() error {
 	// target path MUST exist
 	if b.TargetPath == "" {
-		return fmt.Errorf("The setting targetPath MUST exist within a backup configuration.")
+		return fmt.Errorf("the setting targetPath MUST exist within a backup configuration")
 	}
 	//  script must exist, having only script means this is handled in the script
 	if b.ScriptPath == "" {
-		return fmt.Errorf("The setting scriptPath must exist within a backup configuration.")
+		return fmt.Errorf("the setting scriptPath must exist within a backup configuration")
 	}
 	if !b.ShouldRun() {
-		return fmt.Errorf("Frequency (days inbetween) not reached.")
+		return fmt.Errorf("frequency (days inbetween) not reached")
 	}
 	return nil
 }
 
+// PrepareRun prepares a run for a backup, creates a logger for the execution of the backup script and gives the rights of the directory recursively to the user specified.
 func (b *Backup) PrepareRun() error {
 	backupPath := path.Join(
 		config.Settings.SystemMountPoint,
@@ -96,7 +98,7 @@ func (b *Backup) Run() error {
 		if !strings.ContainsAny(b.ScriptPath, "/") || strings.HasPrefix(b.ScriptPath, ".") {
 			//The scriptPath is a relative path, from the place of the config, so use the config as base
 			log.Printf("ERROR: Script path is relative, aborting.")
-			return fmt.Errorf("Script path is relative, aborting.")
+			return fmt.Errorf("script path is relative, aborting")
 		}
 		cmd := exec.Command("/usr/bin/sh", b.ScriptPath)
 		if b.ExeUser != "" {
@@ -129,7 +131,7 @@ func (b *Backup) Run() error {
 		return nil
 	}
 	// quit with error that the device is not available.
-	return fmt.Errorf("The device is not mounted")
+	return fmt.Errorf("the device is not mounted")
 }
 
 // Runs contains the Data for the scheduler: mapping from backups to a list of timestamps of the last 10 backups
@@ -199,5 +201,5 @@ func (r *Runs) LastRun(b *Backup) (time.Time, error) {
 			return t, nil
 		}
 	}
-	return time.Unix(0, 0), fmt.Errorf("Backup name not found and therefore has never run")
+	return time.Unix(0, 0), fmt.Errorf("backup name not found and therefore has never run")
 }

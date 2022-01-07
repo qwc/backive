@@ -11,8 +11,6 @@ import (
 	"github.com/qwc/backive"
 )
 
-var logfile os.File
-
 func setupLogging() {
 	logname := "/var/log/backive/backive.log"
 	logdir, _ := path.Split(logname)

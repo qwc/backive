@@ -6,7 +6,7 @@ import (
 	"path"
 )
 
-var devsByUuid string = "/dev/disk/by-uuid"
+var devsByUUID = "/dev/disk/by-uuid"
 
 // Devices is nothing else than a name to Device type mapping
 type Devices map[string]*Device
@@ -29,7 +29,7 @@ func (d *Device) Mount() error {
 	log.Printf("Executing mount command for %s", d.Name)
 	cmd := exec.Command(
 		"mount",
-		path.Join(devsByUuid, d.UUID),
+		path.Join(devsByUUID, d.UUID),
 		path.Join(config.Settings.SystemMountPoint, d.Name),
 	)
 	cmd.Stdout = log.Writer()
@@ -69,6 +69,7 @@ func (d *Device) Unmount() error {
 	return nil
 }
 
+// IsMounted returns the mount state of the device
 func (d *Device) IsMounted() bool {
 	return d.isMounted
 }
