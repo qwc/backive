@@ -21,6 +21,7 @@ func setupLogging() {
 		panic("no logfile no info")
 	}
 	log.SetOutput(logfile)
+	log.Println("Logging initialized")
 }
 
 // Global variables for backive
@@ -122,6 +123,10 @@ func main() {
 		code := <-exitChan
 		database.Save()
 		log.Printf("Received exit code (%d), shutting down.", code)
+		err := os.Remove(config.Settings.UnixSocketLocation)
+		if err != nil {
+			log.Printf("Removal of %s failed.", config.Settings.UnixSocketLocation)
+		}
 		os.Exit(code)
 	}()
 

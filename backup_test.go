@@ -37,5 +37,54 @@ func TestFindBackupsForDevice(t *testing.T) {
 			t.Fail()
 		}
 	}
+}
 
+func TestCanRun(t *testing.T) {
+	var bkpTargetPathMissing = Backup{
+		Name:       "targetPathMissing",
+		ScriptPath: "Somethingsomething",
+	}
+	err := bkpTargetPathMissing.CanRun()
+	if err == nil {
+		t.Log("Missing targetPath has to fail function 'CanRun()'")
+		t.Fail()
+	}
+
+	var bkpScriptPathMissing = Backup{
+		Name:       "scriptPathMissing",
+		TargetPath: "somethingsomething",
+	}
+	err = bkpScriptPathMissing.CanRun()
+	if err == nil {
+		t.Log("Missing scriptPath has to fail function 'CanRun()'")
+		t.Fail()
+	}
+
+	var bkpFrequencyZero = Backup{
+		Name:       "testFrequencyZero",
+		TargetPath: "somewhere",
+		ScriptPath: "somehwere_else",
+		Frequency:  0,
+	}
+	var bkpFrequencySeven = Backup{
+		Name:       "testFrequencySeven",
+		TargetPath: "somewhere",
+		ScriptPath: "somewhere_else",
+		Frequency:  7,
+	}
+	database.Load()
+	runs.Load(database)
+	runs.RegisterRun(&bkpFrequencyZero)
+	err = bkpFrequencyZero.CanRun()
+	if err != nil {
+		t.Log("Frequency zero can be executed anytime.")
+		t.Fail()
+	}
+
+	runs.RegisterRun(&bkpFrequencySeven)
+	err = bkpFrequencySeven.CanRun()
+	if err == nil {
+		t.Log("Frequency 7 must give an error about not having reached the interval")
+		t.Fail()
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 )
 
@@ -26,16 +27,27 @@ type Settings struct {
 
 // CreateViper creates a viper instance for usage later
 func (c *Configuration) CreateViper() {
-	vconfig := viper.New()
-	//	vconfig.Debug()
-	vconfig.SetConfigName("backive")
-	vconfig.SetConfigFile("backive.yml")
-	//vconfig.SetConfigFile("backive.yaml")
-	vconfig.SetConfigType("yaml")
-	vconfig.AddConfigPath("/etc/backive/") // system config
-	//vconfig.AddConfigPath("$HOME/.backive/")
-	vconfig.AddConfigPath(".")
-	c.Vconfig = vconfig
+	if c.Vconfig == nil {
+		vconfig := viper.New()
+		//	vconfig.Debug()
+		vconfig.SetConfigName("backive")
+		// do not set config file explicitly or viper doesnt search for it, and /etc search fails
+		//vconfig.SetConfigFile("backive.yml")
+		//vconfig.SetConfigFile("backive.yaml")
+		vconfig.SetConfigType("yaml")
+		//vconfig.AddConfigPath("$HOME/.backive/")
+		vconfig.AddConfigPath(".")             // backup config in local dir
+		vconfig.AddConfigPath("/etc/backive/") // system config
+		vconfig.OnConfigChange(func(e fsnotify.Event) {
+			log.Printf("Event: %s", e)
+			if e.Op == fsnotify.Write {
+				log.Printf("Reloading %s", e.Name)
+				c.Load()
+			}
+		})
+		vconfig.WatchConfig()
+		c.Vconfig = vconfig
+	}
 }
 
 // Load loads the configuration from the disk
