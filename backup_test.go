@@ -88,3 +88,13 @@ func TestCanRun(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func testPrepareRun() {
+	/*
+		Need to mock:
+		- config.Settings.SystemMountPoint (to local test directory)
+		- config.Settings.LogLocation (to local test directory)
+		- exec.Command! (to NOT really execute something)
+
+	*/
+}
