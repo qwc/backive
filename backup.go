@@ -12,6 +12,12 @@ import (
 	"time"
 )
 
+// Mockings
+var mock_exec_Command = exec.Command
+var mock_cmd_Run = func(c *exec.Cmd) error {
+	return c.Run()
+}
+
 // Backup contains all necessary information for executing a configured backup.
 type Backup struct {
 	Name         string `mapstructure:",omitempty"`
@@ -75,12 +81,13 @@ func (b *Backup) PrepareRun() error {
 	}
 	writer := io.MultiWriter(logfile)
 	b.logger = log.New(writer, b.Name, log.LstdFlags)
-	cmd := exec.Command("chown", "-R", b.ExeUser, backupPath)
-	err = cmd.Run()
+	cmd := mock_exec_Command("chown", "-R", b.ExeUser, backupPath)
+	err = mock_cmd_Run(cmd)
 	if err != nil {
 		b.logger.Printf("chown for backup directory failed: %s", err)
 		return err
 	}
+	b.logger.Printf("Backup %s prepared.", b.Name)
 	return nil
 }
 
@@ -92,6 +99,7 @@ func (b *Backup) Run() error {
 		log.Printf("Device found: %s (%s).", dev.Name, dev.UUID)
 	} else {
 		log.Printf("Device %s not found", b.TargetDevice)
+		return fmt.Errorf("device %s not found", b.TargetDevice)
 	}
 	if ok && dev.IsMounted() {
 		if !strings.ContainsAny(b.ScriptPath, "/") || strings.HasPrefix(b.ScriptPath, ".") {
@@ -99,10 +107,10 @@ func (b *Backup) Run() error {
 			log.Printf("ERROR: Script path is relative, aborting.")
 			return fmt.Errorf("script path is relative, aborting")
 		}
-		cmd := exec.Command("/usr/bin/sh", b.ScriptPath)
+		cmd := mock_exec_Command("/usr/bin/sh", b.ScriptPath)
 		if b.ExeUser != "" {
 			// setup script environment including user to use
-			cmd = exec.Command("sudo", "-E", "-u", b.ExeUser, "/usr/bin/sh", b.ScriptPath)
+			cmd = mock_exec_Command("sudo", "-E", "-u", b.ExeUser, "/usr/bin/sh", b.ScriptPath)
 		}
 		b.logger.Printf("Running backup script of '%s'", b.Name)
 		b.logger.Printf("Script is: %s", b.ScriptPath)
@@ -121,7 +129,7 @@ func (b *Backup) Run() error {
 
 		log.Printf("About to run: %s", cmd.String())
 		// run script
-		err := cmd.Run()
+		err := mock_cmd_Run(cmd)
 		if err != nil {
 			log.Printf("Backup '%s' run failed", b.Name)
 			return err

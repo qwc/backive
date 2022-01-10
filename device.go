@@ -35,7 +35,7 @@ func (d *Device) Mount() error {
 	cmd.Stdout = log.Writer()
 	cmd.Stderr = log.Writer()
 	log.Printf("Command to execute: %s", cmd.String())
-	err := cmd.Run()
+	err := mock_cmd_Run(cmd)
 	if err != nil {
 		log.Printf("Mounting failed with error %v", err)
 		return err
@@ -49,7 +49,7 @@ func (d *Device) Unmount() error {
 	if d.isMounted {
 		log.Printf("Unmounting %s", d.Name)
 		sync := exec.Command("sync")
-		syncErr := sync.Run()
+		syncErr := mock_cmd_Run(sync)
 		if syncErr != nil {
 			log.Println(syncErr)
 			return syncErr
@@ -59,7 +59,7 @@ func (d *Device) Unmount() error {
 			path.Join(config.Settings.SystemMountPoint, d.Name),
 		)
 		log.Printf("About to run: %s", cmd.String())
-		err := cmd.Run()
+		err := mock_cmd_Run(cmd)
 		if err != nil {
 			log.Println(err)
 			return err

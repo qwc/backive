@@ -1,6 +1,24 @@
 package backive
 
-import "testing"
+import (
+	"fmt"
+	"os/exec"
+	"path"
+	"runtime"
+	"testing"
+)
+
+func getCurrentFilePath() string {
+	pc, file, line, ok := runtime.Caller(1)
+	fmt.Printf("pc: %d, file: %s, line: %d, ok: %v\n", pc, file, line, ok)
+	return file
+}
+
+type MockCmd struct{}
+
+func (c *MockCmd) Run() error {
+	return nil
+}
 
 func TestFindBackupsForDevice(t *testing.T) {
 	var testBackups = Backups{}
@@ -89,12 +107,67 @@ func TestCanRun(t *testing.T) {
 	}
 }
 
-func testPrepareRun() {
-	/*
-		Need to mock:
-		- config.Settings.SystemMountPoint (to local test directory)
-		- config.Settings.LogLocation (to local test directory)
-		- exec.Command! (to NOT really execute something)
+func setupNewTestEnv(subdir string) {
+	file := getCurrentFilePath()
+	dir, _ := path.Split(file)
+	dir = path.Join(dir, "test", "_workarea", subdir)
+	config.Settings.SystemMountPoint = path.Join(dir, "mnt")
+	config.Settings.LogLocation = path.Join(dir, "log")
+	fmt.Printf("SystemMountPoint: %s, LogLocation: %s\n", config.Settings.SystemMountPoint, config.Settings.LogLocation)
+}
 
-	*/
+func TestPrepareRun(t *testing.T) {
+	setupNewTestEnv("preparerun")
+
+	mock_cmd_Run = func(c *exec.Cmd) error {
+		return nil
+	}
+	var testBkp = Backup{
+		Name:         "testbkp",
+		TargetDevice: "mytarget",
+		TargetPath:   "mypath",
+	}
+	err := testBkp.PrepareRun()
+	if err != nil {
+		t.Log("When this fails, something's fishy...")
+		t.Fail()
+	}
+}
+
+func TestRun(t *testing.T) {
+	setupNewTestEnv("run")
+	config.Devices = map[string]*Device{
+		"mytarget": new(Device),
+	}
+	config.Devices["mytarget"].Name = "mytarget"
+	config.Devices["mytarget"].UUID = "123-456-789-abc-def"
+
+	mock_cmd_Run = func(c *exec.Cmd) error {
+		return nil
+	}
+	var testBkp = Backup{
+		Name:         "testbkp",
+		TargetDevice: "mytargets",
+		TargetPath:   "mypath",
+		ScriptPath:   "/dev/null",
+		SourcePath:   "/dev/random",
+	}
+	err := testBkp.Run()
+	if err == nil || err.Error() != "device mytargets not found" {
+		if err != nil {
+			t.Logf("The error should be 'device mytargets not found', but is '%s'", err.Error())
+			t.Fail()
+		}
+	}
+	testBkp.TargetDevice = "mytarget"
+	config.Devices["mytarget"].Mount()
+	err = testBkp.PrepareRun()
+	err = testBkp.Run()
+	if err != nil {
+		t.Logf("Error which should not occur: %s", err)
+		t.Fail()
+	}
+	mock_cmd_Run = func(c *exec.Cmd) error {
+		return nil
+	}
 }
