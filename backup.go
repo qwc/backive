@@ -159,6 +159,9 @@ func (r *Runs) Load(db Database) {
 
 // Save saves the data into the json database
 func (r *Runs) Save(db Database) {
+	if db.data == nil {
+		db.data = map[string]string{}
+	}
 	str, err := json.Marshal(r.data)
 	if err != nil {
 		panic(err)
