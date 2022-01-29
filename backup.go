@@ -13,8 +13,8 @@ import (
 )
 
 // Mockings
-var mock_exec_Command = exec.Command
-var mock_cmd_Run = func(c *exec.Cmd) error {
+var mockExecCommand = exec.Command
+var mockCmdRun = func(c *exec.Cmd) error {
 	return c.Run()
 }
 
@@ -81,8 +81,8 @@ func (b *Backup) PrepareRun() error {
 	}
 	writer := io.MultiWriter(logfile)
 	b.logger = log.New(writer, b.Name, log.LstdFlags)
-	cmd := mock_exec_Command("chown", "-R", b.ExeUser, backupPath)
-	err = mock_cmd_Run(cmd)
+	cmd := mockExecCommand("chown", "-R", b.ExeUser, backupPath)
+	err = mockCmdRun(cmd)
 	if err != nil {
 		b.logger.Printf("chown for backup directory failed: %s", err)
 		return err
@@ -107,10 +107,10 @@ func (b *Backup) Run() error {
 			log.Printf("ERROR: Script path is relative, aborting.")
 			return fmt.Errorf("script path is relative, aborting")
 		}
-		cmd := mock_exec_Command("/usr/bin/sh", b.ScriptPath)
+		cmd := mockExecCommand("/usr/bin/sh", b.ScriptPath)
 		if b.ExeUser != "" {
 			// setup script environment including user to use
-			cmd = mock_exec_Command("sudo", "-E", "-u", b.ExeUser, "/usr/bin/sh", b.ScriptPath)
+			cmd = mockExecCommand("sudo", "-E", "-u", b.ExeUser, "/usr/bin/sh", b.ScriptPath)
 		}
 		b.logger.Printf("Running backup script of '%s'", b.Name)
 		b.logger.Printf("Script is: %s", b.ScriptPath)
@@ -129,7 +129,7 @@ func (b *Backup) Run() error {
 
 		log.Printf("About to run: %s", cmd.String())
 		// run script
-		err := mock_cmd_Run(cmd)
+		err := mockCmdRun(cmd)
 		if err != nil {
 			log.Printf("Backup '%s' run failed", b.Name)
 			return err

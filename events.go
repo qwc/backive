@@ -14,10 +14,12 @@ type EventHandler struct {
 	ls net.Listener
 	//done      <-chan struct{}
 	callbacks []func(map[string]string)
+	stop      chan bool
 }
 
 // Init initializes the unix socket.
 func (eh *EventHandler) Init(socketPath string) {
+	eh.stop = make(chan bool)
 	log.Println("Initializing EventHandler...")
 	var err error
 	dir, _ := path.Split(socketPath)
@@ -29,12 +31,27 @@ func (eh *EventHandler) Init(socketPath string) {
 	eh.callbacks = make([]func(map[string]string), 3)
 }
 
+func (eh *EventHandler) Stop() {
+	log.Println("Closing EventHandler")
+	eh.stop <- true
+	err := eh.ls.Close()
+	if err != nil {
+		log.Println("Error closing the listener")
+	}
+	log.Println("Closed EventHandler")
+}
+
 // Listen starts the event loop.
 func (eh *EventHandler) Listen() {
 	log.Println("Running eventloop")
 	func() {
 		for {
-			eh.process()
+			select {
+			case <-eh.stop:
+				return
+			default:
+				eh.process()
+			}
 		}
 	}()
 }
@@ -49,8 +66,14 @@ func (eh *EventHandler) process() {
 	client, err := eh.ls.Accept()
 	log.Println("Accepted client")
 	if err != nil {
-		log.Fatal(err)
+		select {
+		case <-eh.stop:
+			return
+		default:
+			log.Fatal(err)
+		}
 	}
+	defer client.Close()
 	data := make([]byte, 2048)
 	for {
 		buf := make([]byte, 512)
@@ -67,14 +90,14 @@ func (eh *EventHandler) process() {
 	//log.Println(sdata)
 	var message map[string]interface{}
 	errjson := json.Unmarshal([]byte(sdata), &message)
+	if errjson != nil {
+		log.Fatal(errjson)
+	}
 	var env = map[string]string{}
 	if message["request"] == "udev" {
 		for k, v := range message["data"].(map[string]interface{}) {
 			env[k] = v.(string)
 		}
-	}
-	if errjson != nil {
-		log.Fatal(errjson)
 	}
 	for _, v := range eh.callbacks {
 		if v != nil {

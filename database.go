@@ -7,6 +7,9 @@ import (
 	"path"
 )
 
+var mockOsWriteFile = os.WriteFile
+var mockOsReadFile = os.ReadFile
+
 // Database is a simple string to string mapping, where arbitrary strings can be stored and safed to disk or loaded
 type Database struct {
 	data map[string]string
@@ -23,7 +26,7 @@ func (d *Database) Save() {
 	log.Printf("Writing database output to file: %s", jsonstr)
 	saveDir, _ := path.Split(dbPath)
 	CreateDirectoryIfNotExists(saveDir)
-	err := os.WriteFile(dbPath, []byte(jsonstr), 0644)
+	err := mockOsWriteFile(dbPath, []byte(jsonstr), 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -32,7 +35,7 @@ func (d *Database) Save() {
 // Load loads the database
 func (d *Database) Load() {
 	if _, err := os.Stat(dbPath); err == nil {
-		data, rferr := os.ReadFile(dbPath)
+		data, rferr := mockOsReadFile(dbPath)
 		if rferr != nil {
 			panic(rferr)
 		}

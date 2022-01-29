@@ -14,12 +14,6 @@ func getCurrentFilePath() string {
 	return file
 }
 
-type MockCmd struct{}
-
-func (c *MockCmd) Run() error {
-	return nil
-}
-
 func TestFindBackupsForDevice(t *testing.T) {
 	var testBackups = Backups{}
 
@@ -119,7 +113,7 @@ func setupNewTestEnv(subdir string) {
 func TestPrepareRun(t *testing.T) {
 	setupNewTestEnv("preparerun")
 
-	mock_cmd_Run = func(c *exec.Cmd) error {
+	mockCmdRun = func(c *exec.Cmd) error {
 		return nil
 	}
 	var testBkp = Backup{
@@ -142,7 +136,7 @@ func TestRun(t *testing.T) {
 	config.Devices["mytarget"].Name = "mytarget"
 	config.Devices["mytarget"].UUID = "123-456-789-abc-def"
 
-	mock_cmd_Run = func(c *exec.Cmd) error {
+	mockCmdRun = func(c *exec.Cmd) error {
 		return nil
 	}
 	var testBkp = Backup{
@@ -167,7 +161,7 @@ func TestRun(t *testing.T) {
 		t.Logf("Error which should not occur: %s", err)
 		t.Fail()
 	}
-	mock_cmd_Run = func(c *exec.Cmd) error {
+	mockCmdRun = func(c *exec.Cmd) error {
 		return nil
 	}
 }
