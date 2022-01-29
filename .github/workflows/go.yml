@@ -31,5 +31,5 @@ jobs:
     - name: Build
       run: goreleaser build --snapshot --rm-dist
     - name: Test
-      run: go test -v ./...
+      run: go test -v -cover
 
