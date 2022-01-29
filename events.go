@@ -31,6 +31,7 @@ func (eh *EventHandler) Init(socketPath string) {
 	eh.callbacks = make([]func(map[string]string), 3)
 }
 
+// Stop stops the Eventhandler
 func (eh *EventHandler) Stop() {
 	log.Println("Closing EventHandler")
 	eh.stop <- true
