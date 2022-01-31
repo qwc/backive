@@ -92,6 +92,7 @@ If your backup script does not need the `BACKIVE_FROM` you currently still have 
 - So if you want to test backive, copy the file `udev/99-backive.rules` to `/etc/udev/rules.d/` and change the path to the `backive_udev` binary.
 - Do not forget to give all binaries a `chmod +x`
 - Put the `systemd/backive.service` to `/etc/systemd/system/` and do a systemctl daemon-reload
+  - Change the working directory in the systemd service file to the directory where the `backive` binary lives
   - The service needs root rights to run, sadly, to be able to use the specified users in the configuration for executing, I know that this is a security issue, but because of the fact it is currently only a service for myself I do not care. It might be changed later to a group permission management.
 - Run the service and keep an eye on `/var/log/backive/` and it's files there
 
