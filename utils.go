@@ -1,20 +1,21 @@
 package backive
 
 import (
-	"log"
 	"os"
 )
 
 var mockOsStat = os.Stat
 var mockOsMkdirAll = os.MkdirAll
+var mockOsIsNotExist = os.IsNotExist
 
 // CreateDirectoryIfNotExists Checks for a directory string and creates the directory if it does not exist, must be a absolute path.
-func CreateDirectoryIfNotExists(dir string) {
+func CreateDirectoryIfNotExists(dir string) error {
 	if _, err := mockOsStat(dir); err == nil {
 		//ignore
-	} else if os.IsNotExist(err) {
-		mockOsMkdirAll(dir, 0755)
+	} else if mockOsIsNotExist(err) {
+		return mockOsMkdirAll(dir, 0755)
 	} else {
-		log.Fatal(err)
+		return err
 	}
+	return nil
 }

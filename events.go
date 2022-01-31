@@ -9,37 +9,29 @@ import (
 	"path"
 )
 
+var mockAccept = func(eh *EventHandler) (net.Conn, error) {
+	log.Println("Calling eh.ls.Accept()")
+	return eh.ls.Accept()
+}
+
 // EventHandler holds the necessary elements to get an eventhandler setup and working.
 type EventHandler struct {
-	ls net.Listener
-	//done      <-chan struct{}
+	ls        net.Listener
 	callbacks []func(map[string]string)
-	stop      chan bool
 }
 
 // Init initializes the unix socket.
-func (eh *EventHandler) Init(socketPath string) {
-	eh.stop = make(chan bool)
+func (eh *EventHandler) Init(socketPath string) error {
 	log.Println("Initializing EventHandler...")
 	var err error
 	dir, _ := path.Split(socketPath)
 	CreateDirectoryIfNotExists(dir)
 	eh.ls, err = net.Listen("unix", socketPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	eh.callbacks = make([]func(map[string]string), 3)
-}
-
-// Stop stops the Eventhandler
-func (eh *EventHandler) Stop() {
-	log.Println("Closing EventHandler")
-	eh.stop <- true
-	err := eh.ls.Close()
-	if err != nil {
-		log.Println("Error closing the listener")
-	}
-	log.Println("Closed EventHandler")
+	return nil
 }
 
 // Listen starts the event loop.
@@ -47,12 +39,7 @@ func (eh *EventHandler) Listen() {
 	log.Println("Running eventloop")
 	func() {
 		for {
-			select {
-			case <-eh.stop:
-				return
-			default:
-				eh.process()
-			}
+			eh.process()
 		}
 	}()
 }
@@ -64,23 +51,21 @@ func (eh *EventHandler) RegisterCallback(cb func(map[string]string)) {
 
 // process processes each and every unix socket event, Unmarshals the json data and calls the list of callbacks.
 func (eh *EventHandler) process() {
-	client, err := eh.ls.Accept()
+	client, err := mockAccept(eh)
 	log.Println("Accepted client")
 	if err != nil {
-		select {
-		case <-eh.stop:
-			return
-		default:
-			log.Fatal(err)
-		}
+		log.Println(err)
+		return
 	}
 	defer client.Close()
 	data := make([]byte, 2048)
 	for {
 		buf := make([]byte, 512)
 		nr, err := client.Read(buf)
+		log.Printf("Read %d bytes...", nr)
 		if err != nil && err != io.EOF {
-			log.Fatal(err)
+			log.Println(err)
+			return
 		}
 		data = append(data, buf[0:nr]...)
 		if err == io.EOF {
@@ -88,12 +73,14 @@ func (eh *EventHandler) process() {
 		}
 	}
 	sdata := string(bytes.Trim(data, "\x00"))
-	//log.Println(sdata)
 	var message map[string]interface{}
+	log.Printf("Reading JSON: %s", sdata)
 	errjson := json.Unmarshal([]byte(sdata), &message)
 	if errjson != nil {
-		log.Fatal(errjson)
+		log.Println(errjson)
+		return
 	}
+	log.Println("Calling callbacks")
 	var env = map[string]string{}
 	if message["request"] == "udev" {
 		for k, v := range message["data"].(map[string]interface{}) {
@@ -102,6 +89,7 @@ func (eh *EventHandler) process() {
 	}
 	for _, v := range eh.callbacks {
 		if v != nil {
+			log.Println("Calling callback")
 			v(env)
 		}
 	}

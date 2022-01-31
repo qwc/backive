@@ -2,6 +2,8 @@ package backive
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -9,73 +11,89 @@ import (
 	"time"
 )
 
+type ConnStub struct {
+}
+
+var counter int
+
+func (c ConnStub) Read(b []byte) (int, error) {
+	switch {
+	case counter == 0:
+		counter++
+		env := map[string]string{}
+		env["test"] = "test"
+		message := map[string]interface{}{}
+		message["request"] = "udev"
+		message["data"] = env
+		data, err := json.Marshal(message)
+		copy(b, data)
+		log.Println(string(b))
+		return len(data), err
+	case counter == 1:
+		counter++
+		return 0, io.EOF
+	case counter == 2:
+		counter++
+		return 0, fmt.Errorf("Some Error for testing")
+	default:
+		return 0, io.EOF
+	}
+}
+func (c ConnStub) Close() error {
+	return nil
+}
+func (c ConnStub) LocalAddr() net.Addr {
+	return nil
+}
+func (c ConnStub) RemoteAddr() net.Addr {
+	return nil
+}
+func (c ConnStub) SetDeadline(t time.Time) error {
+	return nil
+}
+func (c ConnStub) SetReadDeadline(t time.Time) error {
+	return nil
+}
+func (c ConnStub) SetWriteDeadline(t time.Time) error {
+	return nil
+}
+func (c ConnStub) Write(b []byte) (int, error) {
+	return 0, nil
+}
+
+var hasBeenCalled = false
+
 func TestEventhandler(t *testing.T) {
-	t.Skip("Do not get it to work...")
 	eh := new(EventHandler)
-	eh.Init("./backive.socket")
+	err := eh.Init("./backive.socket")
+	if err != nil {
+		t.Fail()
+	}
 	defer func() {
-		eh.Stop()
 		err := os.Remove("./backive.socket")
 		if err != nil {
 			t.Log(err)
 		}
 	}()
 	t.Log("Initialized test")
-	go eh.Listen()
-	t.Log("eh is listening")
-	var hasBeenCalled = make(chan bool)
+	//var hasBeenCalled = make(chan bool)
 	eh.RegisterCallback(
 		func(m map[string]string) {
-			hasBeenCalled <- true
+			t.Log("Callback got called")
+			hasBeenCalled = true
 		},
 	)
 	t.Log("registered callback")
-	beenCalled := false
-	var counter = 0
-	env := map[string]string{}
-	env["test"] = "test"
-	message := map[string]interface{}{}
-	message["request"] = "udev"
-	message["data"] = env
-	for {
-		select {
-		case data := <-hasBeenCalled:
-			t.Log("receiving message")
-			beenCalled = data
-			if !beenCalled {
-				t.Fail()
-			}
-			t.Log("received message")
-			eh.Stop()
-			return
-		default:
-			t.Logf("Waiting for callback %d", counter)
-			time.Sleep(time.Millisecond)
-			if counter == 2 {
-				sendDataToSocket("./backive.socket", message)
-				t.Log("sent message")
-			}
-			if counter < 10 {
-				counter++
-			} else {
-				t.Log("Stopping with Fail")
-				eh.Stop()
-				t.Fail()
-				break
-			}
-		}
-	}
-}
 
-func sendDataToSocket(socket string, message map[string]interface{}) {
-	c, err := net.Dial("unix", socket)
-	if err != nil {
-		log.Fatalln("Could not instantiate unix socket. Aborting")
+	mockAccept = func(eh *EventHandler) (net.Conn, error) {
+		t.Log("Mocked Accept() has been called.")
+		mycon := ConnStub{}
+		return mycon, nil
 	}
-	jsonstr, err := json.Marshal(message)
-	if err != nil {
-		log.Fatalln("Could not convert to json. Aborting")
+	eh.process()
+	//beenCalled := <-hasBeenCalled
+	if !hasBeenCalled {
+		t.Log("Got false, need true.")
+		t.Fail()
 	}
-	c.Write(jsonstr)
-	defer c.Close()
 }

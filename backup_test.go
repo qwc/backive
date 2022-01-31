@@ -92,6 +92,10 @@ func TestCanRun(t *testing.T) {
 		t.Log("Frequency zero can be executed anytime.")
 		t.Fail()
 	}
+	if !bkpFrequencyZero.ShouldRun() {
+		t.Log("Frequency zero can be executed anytime, should run does not work.")
+		t.Fail()
+	}
 
 	runs.RegisterRun(&bkpFrequencySeven)
 	err = bkpFrequencySeven.CanRun()
