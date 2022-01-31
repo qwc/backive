@@ -53,7 +53,7 @@ backups:
     sourcePath: /home/myuser/data2
     targetPath: data2
     label: "Development test backup"
-  scanner_usbstick_test:
+  MyFATDevice_test:
     user: myuser
     targetDevice: MyFATDevice
     frequency: 0
