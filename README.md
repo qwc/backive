@@ -30,4 +30,4 @@ What I currently see as optional:
 
 # Current state
 
-In the very beginning...
+Working daemon and udev binary. Ready for first basic usage and testing in "production".
