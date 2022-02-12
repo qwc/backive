@@ -13,21 +13,20 @@ import (
 )
 
 // Mockings
-var mockExecCommand = exec.Command
 var mockCmdRun = func(c *exec.Cmd) error {
 	return c.Run()
 }
 
 // Backup contains all necessary information for executing a configured backup.
 type Backup struct {
-	Name         string `mapstructure:",omitempty"`
-	TargetDevice string `mapstructure:"targetDevice"`
-	TargetPath   string `mapstructure:"targetPath"`
-	SourcePath   string `mapstructure:"sourcePath"`
-	ScriptPath   string `mapstructure:"scriptPath"`
-	Frequency    int    `mapstructure:"frequency"`
-	ExeUser      string `mapstructure:"user,omitempty"`
-	Label        string `mapstructure:"label,omitempty"`
+	Name         string      `mapstructure:",omitempty"`
+	TargetDevice string      `mapstructure:"targetDevice"`
+	TargetPath   string      `mapstructure:"targetPath"`
+	SourcePath   string      `mapstructure:"sourcePath"`
+	ScriptPath   interface{} `mapstructure:"scriptPath"`
+	Frequency    int         `mapstructure:"frequency"`
+	ExeUser      string      `mapstructure:"user,omitempty"`
+	Label        string      `mapstructure:"label,omitempty"`
 	logger       *log.Logger
 }
 
@@ -81,7 +80,7 @@ func (b *Backup) PrepareRun() error {
 	}
 	writer := io.MultiWriter(logfile)
 	b.logger = log.New(writer, b.Name, log.LstdFlags)
-	cmd := mockExecCommand("chown", "-R", b.ExeUser, backupPath)
+	cmd := exec.Command("chown", "-R", b.ExeUser, backupPath)
 	err = mockCmdRun(cmd)
 	if err != nil {
 		b.logger.Printf("chown for backup directory failed: %s", err)
@@ -102,15 +101,37 @@ func (b *Backup) Run() error {
 		return fmt.Errorf("device %s not found", b.TargetDevice)
 	}
 	if ok && dev.IsMounted() {
-		if !strings.ContainsAny(b.ScriptPath, "/") || strings.HasPrefix(b.ScriptPath, ".") {
+		var scriptWArgs []string
+		switch slice := b.ScriptPath.(type) {
+		case []interface{}:
+			for _, v := range slice {
+				scriptWArgs = append(scriptWArgs, v.(string))
+			}
+		case []string:
+			for _, v := range slice {
+				scriptWArgs = append(scriptWArgs, v)
+			}
+		case string:
+			scriptWArgs = append(scriptWArgs, slice)
+		default:
+			log.Print("Fuck, the var is nothing we predicted...")
+		}
+		if !strings.ContainsAny(scriptWArgs[0], "/") || strings.HasPrefix(scriptWArgs[0], ".") {
 			//The scriptPath is a relative path, from the place of the config, so use the config as base
 			log.Printf("ERROR: Script path is relative, aborting.")
 			return fmt.Errorf("script path is relative, aborting")
 		}
-		cmd := mockExecCommand("/usr/bin/sh", b.ScriptPath)
+		var cmd *exec.Cmd
+		var args []string
 		if b.ExeUser != "" {
 			// setup script environment including user to use
-			cmd = mockExecCommand("sudo", "-E", "-u", b.ExeUser, "/usr/bin/sh", b.ScriptPath)
+			args = []string{"-E", "-u", b.ExeUser, "/usr/bin/sh"}
+			args = append(args, scriptWArgs...)
+			cmd = exec.Command("sudo", args...)
+		} else {
+			args = []string{}
+			args = append(args, scriptWArgs...)
+			cmd = exec.Command("/usr/bin/sh", args...)
 		}
 		b.logger.Printf("Running backup script of '%s'", b.Name)
 		b.logger.Printf("Script is: %s", b.ScriptPath)
