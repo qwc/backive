@@ -52,7 +52,7 @@ func (b *Backup) CanRun() error {
 		return fmt.Errorf("the setting targetPath MUST exist within a backup configuration")
 	}
 	//  script must exist, having only script means this is handled in the script
-	if b.ScriptPath == "" {
+	if b.ScriptPath == nil {
 		return fmt.Errorf("the setting scriptPath must exist within a backup configuration")
 	}
 	if !b.ShouldRun() {

@@ -68,6 +68,7 @@ func TestCanRun(t *testing.T) {
 	}
 	err = bkpScriptPathMissing.CanRun()
 	if err == nil {
+		t.Logf("ScriptPath is %v", bkpScriptPathMissing.ScriptPath)
 		t.Log("Missing scriptPath has to fail function 'CanRun()'")
 		t.Fail()
 	}
