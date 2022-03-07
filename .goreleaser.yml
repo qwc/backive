@@ -33,7 +33,8 @@ builds:
     id: "backive_ui"
     binary: backive_ui
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
+      - GOOS=linux
     goarch:
       - amd64
     goos:

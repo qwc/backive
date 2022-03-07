@@ -1,7 +1,14 @@
 package main
 
-import "fmt"
+import (
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/widget"
+)
 
 func main() {
-	fmt.Println("vim-go")
+	app := app.New()
+	w := app.NewWindow("Hello World!")
+
+	w.SetContent(widget.NewLabel("Hello World!"))
+	w.ShowAndRun()
 }
