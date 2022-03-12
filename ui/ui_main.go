@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
@@ -16,6 +18,7 @@ var (
 
 	accord     *widget.Accordion
 	center     *fyne.Container
+	content    *fyne.Container
 	devBtnList []*widget.Button
 	bacBtnList []*widget.Button
 )
@@ -29,6 +32,7 @@ func Init(a fyne.App, w fyne.Window, c backive.Configuration, d backive.Database
 }
 
 func SetupLayout() {
+	fmt.Print("Setting up layout\n")
 	accord = widget.NewAccordion()
 	devBtnList := []*widget.Button{}
 	devLayout := container.NewVBox()
@@ -37,36 +41,44 @@ func SetupLayout() {
 		devBtnList = append(devBtnList, btn)
 		devLayout.Add(btn)
 	}
+	for _, obj := range devBtnList {
+		dev := obj.Text
+		fmt.Printf("Setting OnTapped on %s\n", dev)
+		obj.OnTapped = func() {
+			fmt.Printf("Btn %s\n", dev)
+			DisplayDevice(dev)
+		}
+	}
 	devices := widget.NewAccordionItem("Devices", devLayout)
 	accord.Append(devices)
 	bacBtnList := []*widget.Button{}
 	bacLayout := container.NewVBox()
 	for _, obj := range config.Backups {
-		btn := widget.NewButton(obj.Name, nil)
+		bkp := obj.Name
+		btn := widget.NewButton(
+			bkp, func() {
+				DisplayBackup(bkp)
+			})
 		bacBtnList = append(bacBtnList, btn)
 		bacLayout.Add(btn)
 	}
 	backups := widget.NewAccordionItem("Backups", bacLayout)
 	accord.Append(backups)
-	center := container.NewMax()
+	center = container.NewMax()
 	left := container.NewMax()
 	left.Add(accord)
 	window.Resize(fyne.NewSize(800, 600))
-	content := container.New(layout.NewBorderLayout(nil, nil, left, nil), left, center)
+	content = container.NewBorder(nil, nil, left, nil, center)
 	window.SetContent(content)
-
-	// setup btns
-	for _, obj := range devBtnList {
-		obj.OnTapped = func() {
-			DisplayDevice(obj.Text)
-		}
-	}
 }
 
 func ClearCenter() {
-	if len(center.Objects) > 0 {
-		center.Objects = []fyne.CanvasObject{}
+	fmt.Print("ClearCenter\n")
+	if center != nil && center.Objects != nil && len(center.Objects) > 0 {
+		center.Objects = nil
+		center.Refresh()
 	}
+	content.Refresh()
 }
 
 func DisplayDevice(dev string) {
@@ -81,6 +93,8 @@ func DisplayDevice(dev string) {
 	dataForm.Add(widget.NewLabel(device.UUID))
 	dataForm.Add(widget.NewLabel("Owner"))
 	dataForm.Add(widget.NewLabel(device.OwnerUser))
+	fmt.Printf("Adding device %s\n", dev)
+	center.Add(vbox)
 }
 
 func DisplayBackup(bac string) {
