@@ -102,6 +102,7 @@ func (b *Backup) Run() error {
 	}
 	if ok && dev.IsMounted() {
 		var scriptWArgs []string
+		// ScriptPath may be an slice/array of a script path with parameters or just a string with a script path
 		switch slice := b.ScriptPath.(type) {
 		case []interface{}:
 			for _, v := range slice {

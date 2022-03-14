@@ -2,6 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -94,9 +97,59 @@ func DisplayDevice(dev string) {
 	dataForm.Add(widget.NewLabel("Owner"))
 	dataForm.Add(widget.NewLabel(device.OwnerUser))
 	fmt.Printf("Adding device %s\n", dev)
+	dataForm.Add(widget.NewLabel("Assigned backup"))
+	var backups []string
+	for _, obj := range config.Backups {
+		if dev == obj.TargetDevice {
+			backups = append(backups, obj.Name)
+		}
+	}
+	dataForm.Add(widget.NewLabel(strings.Join(backups, "\n")))
 	center.Add(vbox)
 }
 
 func DisplayBackup(bac string) {
 	ClearCenter()
+	dataForm := container.New(layout.NewFormLayout())
+	backup := config.Backups[bac]
+	dataForm.Add(widget.NewLabel("Name"))
+	dataForm.Add(widget.NewLabel(backup.Name))
+	dataForm.Add(widget.NewLabel("Frequency (days)"))
+	dataForm.Add(widget.NewLabel(fmt.Sprintf("%d", backup.Frequency)))
+	dataForm.Add(widget.NewLabel("Target device"))
+	dataForm.Add(widget.NewLabel(backup.TargetDevice))
+	dataForm.Add(widget.NewLabel("Target directory"))
+	dataForm.Add(widget.NewLabel(backup.TargetPath))
+	dataForm.Add(widget.NewLabel("Source path"))
+	dataForm.Add(widget.NewLabel(backup.SourcePath))
+	dataForm.Add(widget.NewLabel("Script to execute"))
+	var scriptWArgs []string
+	switch slice := backup.ScriptPath.(type) {
+	case []interface{}:
+		for _, v := range slice {
+			scriptWArgs = append(scriptWArgs, v.(string))
+		}
+	case []string:
+		for _, v := range slice {
+			scriptWArgs = append(scriptWArgs, v)
+		}
+	case string:
+		scriptWArgs = append(scriptWArgs, slice)
+	}
+	dataForm.Add(widget.NewLabel(strings.Join(scriptWArgs, " ")))
+
+	dataForm.Add(widget.NewLabel("Executing user"))
+	dataForm.Add(widget.NewLabel(backup.ExeUser))
+	dataForm.Add(widget.NewLabel("Label"))
+	dataForm.Add(widget.NewLabel(backup.Label))
+	logEntry := widget.NewMultiLineEntry()
+	content, err := ioutil.ReadFile(path.Join(config.Settings.LogLocation, bac+".log"))
+	if err != nil {
+		logEntry.SetText("Reading file failed")
+	}
+	logEntry.Disable()
+	logEntry.SetText(string(content))
+	vbox := container.NewBorder(dataForm, nil, nil, nil, logEntry)
+	fmt.Printf("Adding backu %s\n", bac)
+	center.Add(container.NewMax(vbox))
 }
