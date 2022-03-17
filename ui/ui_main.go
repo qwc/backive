@@ -6,8 +6,10 @@ import (
 	"path"
 	"strings"
 
+	"fyne.io/fyne/theme"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/qwc/backive"
@@ -28,10 +30,25 @@ var (
 
 func Init(a fyne.App, w fyne.Window, c backive.Configuration, d backive.Database) {
 	app = a
+	a.SetIcon(theme.FyneLogo())
+	makeTray(app)
 	window = w
 	config = c
 	db = d
 	SetupLayout()
+}
+
+func makeTray(app fyne.App) {
+	if desk, ok := app.(desktop.App); ok {
+		menu := fyne.NewMenu(
+			"backive",
+			fyne.NewMenuItem(
+				"open app",
+				func() {
+					fmt.Println("TrayMenu tapped.")
+				}))
+		desk.SetSystemTrayMenu(menu)
+	}
 }
 
 func SetupLayout() {
