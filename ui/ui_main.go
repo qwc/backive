@@ -48,11 +48,9 @@ func makeTray(app fyne.App) {
 			"backive",
 			fyne.NewMenuItem("open app", func() {
 				window.Show()
-				fmt.Println("TrayMenu tapped.")
 			}),
 			fyne.NewMenuItem("Hide app", func() {
 				window.Hide()
-				fmt.Println("Hide tapped.")
 			}),
 			fyne.NewMenuItem("Send note", func() {
 				app.SendNotification(fyne.NewNotification("Hi", "content stuff"))
