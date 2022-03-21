@@ -3,13 +3,13 @@ module github.com/qwc/backive
 go 1.17
 
 require (
-	fyne.io/fyne/v2 v2.1.4-0.20220317100007-07feb4181e66
+	fyne.io/fyne/v2 v2.1.4-0.20220321092319-8a034f22e40e
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/spf13/viper v1.10.1
 )
 
 require (
-	fyne.io/systray v1.1.1-0.20220307102710-0121a6d9ce01 // indirect
+	fyne.io/systray v1.9.1-0.20220318224641-d5779bfb17d1 // indirect
 	github.com/Kodeworks/golang-image-ico v0.0.0-20141118225523-73f0f4cfade9 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fredbi/uri v0.0.0-20181227131451-3dcfdacbaaf3 // indirect

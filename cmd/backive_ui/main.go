@@ -16,8 +16,8 @@ func main() {
 
 	database.Load()
 	config.Load()
-	app := app.NewWithID("to.mmo.backive")
-	w := app.NewWindow("Hello World!")
+	app := app.NewWithID("Backive UI")
+	w := app.NewWindow("Backive UI")
 	backiveui.Init(app, w, config, database)
 
 	//w.SetContent(widget.NewLabel("Hello World!"))

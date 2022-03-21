@@ -36,17 +36,28 @@ func Init(a fyne.App, w fyne.Window, c backive.Configuration, d backive.Database
 	config = c
 	db = d
 	SetupLayout()
+	window.SetCloseIntercept(
+		func() {
+			window.Hide()
+		})
 }
 
 func makeTray(app fyne.App) {
 	if desk, ok := app.(desktop.App); ok {
 		menu := fyne.NewMenu(
 			"backive",
-			fyne.NewMenuItem(
-				"open app",
-				func() {
-					fmt.Println("TrayMenu tapped.")
-				}))
+			fyne.NewMenuItem("open app", func() {
+				window.Show()
+				fmt.Println("TrayMenu tapped.")
+			}),
+			fyne.NewMenuItem("Hide app", func() {
+				window.Hide()
+				fmt.Println("Hide tapped.")
+			}),
+			fyne.NewMenuItem("Send note", func() {
+				app.SendNotification(fyne.NewNotification("Hi", "content stuff"))
+			}),
+		)
 		desk.SetSystemTrayMenu(menu)
 	}
 }
