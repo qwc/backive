@@ -1,10 +1,21 @@
 package ui
 
+/*
+# TODO:
+- [x] Show last backup date at frequency
+- [x] Define reminder message/interval for backups
+	- [x] implement 15m interval of showing notifications
+- Send notifications of events from service
+	- Define event protocol
+	- implement service side
+	- implement ui side
+
+*/
+
 import (
 	"fmt"
-	"io/ioutil"
-	"path"
 	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -26,7 +37,14 @@ var (
 	content    *fyne.Container
 	devBtnList []*widget.Button
 	bacBtnList []*widget.Button
+	notifs     notifications
 )
+
+type notifications struct {
+	TurnOffForToday bool
+	TurnOffTS       time.Time
+	Interval        int
+}
 
 func Init(a fyne.App, w fyne.Window, c backive.Configuration, d backive.Database) {
 	app = a
@@ -42,6 +60,23 @@ func Init(a fyne.App, w fyne.Window, c backive.Configuration, d backive.Database
 		})
 }
 
+func NotificationRun() {
+	fmt.Printf("Notification run\n")
+	for _, v := range config.Backups {
+		fmt.Printf("Notification run %s\n", v.Name)
+		if v.ShouldRun() && v.Frequency > 0 {
+			fmt.Printf("Notification for %s\n", v.Name)
+			app.SendNotification(fyne.NewNotification(
+				fmt.Sprintf("%s's frequency days reached", v.Name),
+				fmt.Sprintf("The '%s' frequency days have been reached.\n\nPlease insert the disk with the label '%s' to initiate the backup routine.",
+					v.Name,
+					v.TargetDevice)))
+		}
+	}
+	h, _ := time.ParseDuration("15m")
+	time.Sleep(h)
+}
+
 func makeTray(app fyne.App) {
 	if desk, ok := app.(desktop.App); ok {
 		menu := fyne.NewMenu(
@@ -51,6 +86,10 @@ func makeTray(app fyne.App) {
 			}),
 			fyne.NewMenuItem("Hide app", func() {
 				window.Hide()
+			}),
+			fyne.NewMenuItem("Turn off notifications for today", func() {
+				notifs.TurnOffTS = time.Now()
+				notifs.TurnOffForToday = true
 			}),
 			fyne.NewMenuItem("Send note", func() {
 				app.SendNotification(fyne.NewNotification("Hi", "content stuff"))
@@ -141,7 +180,16 @@ func DisplayBackup(bac string) {
 	dataForm.Add(widget.NewLabel("Name"))
 	dataForm.Add(widget.NewLabel(backup.Name))
 	dataForm.Add(widget.NewLabel("Frequency (days)"))
-	dataForm.Add(widget.NewLabel(fmt.Sprintf("%d", backup.Frequency)))
+	var runs backive.Runs
+	runs.Load(db)
+	lastBackup, err := runs.LastRun(backup)
+	if err == nil {
+		fmt.Printf("displaying run data")
+		dataForm.Add(widget.NewLabel(fmt.Sprintf("%d (%v)", backup.Frequency, lastBackup)))
+	} else {
+		fmt.Printf("no run data")
+		dataForm.Add(widget.NewLabel(fmt.Sprintf("%d (never run)", backup.Frequency)))
+	}
 	dataForm.Add(widget.NewLabel("Target device"))
 	dataForm.Add(widget.NewLabel(backup.TargetDevice))
 	dataForm.Add(widget.NewLabel("Target directory"))
@@ -169,10 +217,11 @@ func DisplayBackup(bac string) {
 	dataForm.Add(widget.NewLabel("Label"))
 	dataForm.Add(widget.NewLabel(backup.Label))
 	logEntry := widget.NewMultiLineEntry()
-	content, err := ioutil.ReadFile(path.Join(config.Settings.LogLocation, bac+".log"))
-	if err != nil {
-		logEntry.SetText("Reading file failed")
-	}
+	//content, err := ioutil.ReadFile(path.Join(config.Settings.LogLocation, bac+".log"))
+	content := ""
+	//if err != nil {
+	//	logEntry.SetText("Reading file failed")
+	//}
 	logEntry.Disable()
 	logEntry.SetText(string(content))
 	vbox := container.NewBorder(dataForm, nil, nil, nil, logEntry)
