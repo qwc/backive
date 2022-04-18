@@ -1,230 +1,89 @@
 package ui
 
-/*
-# TODO:
-- [x] Show last backup date at frequency
-- [x] Define reminder message/interval for backups
-	- [x] implement 15m interval of showing notifications
-- Send notifications of events from service
-	- Define event protocol
-	- implement service side
-	- implement ui side
-
-*/
-
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
-	"fyne.io/fyne/v2/widget"
 	"github.com/qwc/backive"
 )
 
 var (
-	app    fyne.App
-	window fyne.Window
-	config backive.Configuration
-	db     backive.Database
-
-	accord     *widget.Accordion
-	center     *fyne.Container
-	content    *fyne.Container
-	devBtnList []*widget.Button
-	bacBtnList []*widget.Button
-	notifs     notifications
+	app            fyne.App
+	window         fyne.Window
+	config         backive.Configuration
+	db             backive.Database
+	doNotShowUntil time.Time = time.Unix(0, 0)
 )
-
-type notifications struct {
-	TurnOffForToday bool
-	TurnOffTS       time.Time
-	Interval        int
-}
 
 func Init(a fyne.App, w fyne.Window, c backive.Configuration, d backive.Database) {
 	app = a
 	a.SetIcon(theme.FyneLogo())
 	makeTray(app)
-	window = w
 	config = c
 	db = d
-	SetupLayout()
-	window.SetCloseIntercept(
-		func() {
-			window.Hide()
-		})
 }
-
 func NotificationRun() {
-	fmt.Printf("Notification run\n")
-	for _, v := range config.Backups {
-		fmt.Printf("Notification run %s\n", v.Name)
-		if v.ShouldRun() && v.Frequency > 0 {
-			fmt.Printf("Notification for %s\n", v.Name)
-			app.SendNotification(fyne.NewNotification(
-				fmt.Sprintf("%s's frequency days reached", v.Name),
-				fmt.Sprintf("The '%s' frequency days have been reached.\n\nPlease insert the disk with the label '%s' to initiate the backup routine.",
-					v.Name,
-					v.TargetDevice)))
+	if doNotShowUntil == time.Unix(0, 0) || time.Now().After(doNotShowUntil) {
+		ShowNotification()
+		if doNotShowUntil != time.Unix(0, 0) {
+			doNotShowUntil = time.Unix(0, 0)
 		}
 	}
 	h, _ := time.ParseDuration("15m")
 	time.Sleep(h)
 }
 
+func ShowNotification() {
+	displayStr, err := MakeNotificationString()
+	if err == nil {
+		app.SendNotification(
+			fyne.NewNotification(
+				"Backups are overdue...",
+				fmt.Sprintf("Name\t(device)\t[overdue]\n%s", displayStr),
+			),
+		)
+	}
+}
+
+func MakeNotificationString() (string, error) {
+	db.Load()
+	var displayStr string = ""
+	var runs backive.Runs
+	runs.Load(db)
+	fmt.Printf("Notification run\n")
+	for _, v := range config.Backups {
+		fmt.Printf("Notification run %s\n", v.Name)
+		if v.ShouldRun() && v.Frequency > 0 {
+			fmt.Printf("Notification for %s\n", v.Name)
+			lastBackup, err := runs.LastRun(v)
+			if err != nil {
+				return "", err
+			}
+			freq, _ := time.ParseDuration(fmt.Sprintf("%dd", v.Frequency))
+			days := time.Now().Sub(lastBackup.Add(freq))
+			displayStr += fmt.Sprintf("%s\t(%s)\t[%f days]\n", v.Name, v.TargetDevice, days.Hours()/24)
+		}
+	}
+	return displayStr, nil
+}
+
 func makeTray(app fyne.App) {
 	if desk, ok := app.(desktop.App); ok {
 		menu := fyne.NewMenu(
 			"backive",
-			fyne.NewMenuItem("open app", func() {
-				window.Show()
+			fyne.NewMenuItem("Show notifications again", func() {
+				ShowNotification()
 			}),
-			fyne.NewMenuItem("Hide app", func() {
-				window.Hide()
+			fyne.NewMenuItem("Hide notifications for today", func() {
+				doNotShowUntil = time.Now().AddDate(0, 0, 1)
 			}),
-			fyne.NewMenuItem("Turn off notifications for today", func() {
-				notifs.TurnOffTS = time.Now()
-				notifs.TurnOffForToday = true
-			}),
-			fyne.NewMenuItem("Send note", func() {
-				app.SendNotification(fyne.NewNotification("Hi", "content stuff"))
+			fyne.NewMenuItem("Hide notifications for a hour", func() {
+				doNotShowUntil = time.Now().Add(time.Hour)
 			}),
 		)
 		desk.SetSystemTrayMenu(menu)
 	}
-}
-
-func SetupLayout() {
-	fmt.Print("Setting up layout\n")
-	accord = widget.NewAccordion()
-	devBtnList := []*widget.Button{}
-	devLayout := container.NewVBox()
-	for _, obj := range config.Devices {
-		btn := widget.NewButton(obj.Name, nil)
-		devBtnList = append(devBtnList, btn)
-		devLayout.Add(btn)
-	}
-	for _, obj := range devBtnList {
-		dev := obj.Text
-		fmt.Printf("Setting OnTapped on %s\n", dev)
-		obj.OnTapped = func() {
-			fmt.Printf("Btn %s\n", dev)
-			DisplayDevice(dev)
-		}
-	}
-	devices := widget.NewAccordionItem("Devices", devLayout)
-	accord.Append(devices)
-	bacBtnList := []*widget.Button{}
-	bacLayout := container.NewVBox()
-	for _, obj := range config.Backups {
-		bkp := obj.Name
-		btn := widget.NewButton(
-			bkp, func() {
-				DisplayBackup(bkp)
-			})
-		bacBtnList = append(bacBtnList, btn)
-		bacLayout.Add(btn)
-	}
-	backups := widget.NewAccordionItem("Backups", bacLayout)
-	accord.Append(backups)
-	center = container.NewMax()
-	left := container.NewMax()
-	left.Add(accord)
-	window.Resize(fyne.NewSize(800, 600))
-	content = container.NewBorder(nil, nil, left, nil, center)
-	window.SetContent(content)
-}
-
-func ClearCenter() {
-	fmt.Print("ClearCenter\n")
-	if center != nil && center.Objects != nil && len(center.Objects) > 0 {
-		center.Objects = nil
-		center.Refresh()
-	}
-	content.Refresh()
-}
-
-func DisplayDevice(dev string) {
-	ClearCenter()
-	vbox := container.NewVBox()
-	dataForm := container.New(layout.NewFormLayout())
-	vbox.Add(dataForm)
-	device := config.Devices[dev]
-	dataForm.Add(widget.NewLabel("Name"))
-	dataForm.Add(widget.NewLabel(device.Name))
-	dataForm.Add(widget.NewLabel("UUID"))
-	dataForm.Add(widget.NewLabel(device.UUID))
-	dataForm.Add(widget.NewLabel("Owner"))
-	dataForm.Add(widget.NewLabel(device.OwnerUser))
-	fmt.Printf("Adding device %s\n", dev)
-	dataForm.Add(widget.NewLabel("Assigned backup"))
-	var backups []string
-	for _, obj := range config.Backups {
-		if dev == obj.TargetDevice {
-			backups = append(backups, obj.Name)
-		}
-	}
-	dataForm.Add(widget.NewLabel(strings.Join(backups, "\n")))
-	center.Add(vbox)
-}
-
-func DisplayBackup(bac string) {
-	ClearCenter()
-	dataForm := container.New(layout.NewFormLayout())
-	backup := config.Backups[bac]
-	dataForm.Add(widget.NewLabel("Name"))
-	dataForm.Add(widget.NewLabel(backup.Name))
-	dataForm.Add(widget.NewLabel("Frequency (days)"))
-	var runs backive.Runs
-	runs.Load(db)
-	lastBackup, err := runs.LastRun(backup)
-	if err == nil {
-		fmt.Printf("displaying run data")
-		dataForm.Add(widget.NewLabel(fmt.Sprintf("%d (%v)", backup.Frequency, lastBackup)))
-	} else {
-		fmt.Printf("no run data")
-		dataForm.Add(widget.NewLabel(fmt.Sprintf("%d (never run)", backup.Frequency)))
-	}
-	dataForm.Add(widget.NewLabel("Target device"))
-	dataForm.Add(widget.NewLabel(backup.TargetDevice))
-	dataForm.Add(widget.NewLabel("Target directory"))
-	dataForm.Add(widget.NewLabel(backup.TargetPath))
-	dataForm.Add(widget.NewLabel("Source path"))
-	dataForm.Add(widget.NewLabel(backup.SourcePath))
-	dataForm.Add(widget.NewLabel("Script to execute"))
-	var scriptWArgs []string
-	switch slice := backup.ScriptPath.(type) {
-	case []interface{}:
-		for _, v := range slice {
-			scriptWArgs = append(scriptWArgs, v.(string))
-		}
-	case []string:
-		for _, v := range slice {
-			scriptWArgs = append(scriptWArgs, v)
-		}
-	case string:
-		scriptWArgs = append(scriptWArgs, slice)
-	}
-	dataForm.Add(widget.NewLabel(strings.Join(scriptWArgs, " ")))
-
-	dataForm.Add(widget.NewLabel("Executing user"))
-	dataForm.Add(widget.NewLabel(backup.ExeUser))
-	dataForm.Add(widget.NewLabel("Label"))
-	dataForm.Add(widget.NewLabel(backup.Label))
-	logEntry := widget.NewMultiLineEntry()
-	//content, err := ioutil.ReadFile(path.Join(config.Settings.LogLocation, bac+".log"))
-	content := ""
-	//if err != nil {
-	//	logEntry.SetText("Reading file failed")
-	//}
-	logEntry.Disable()
-	logEntry.SetText(string(content))
-	vbox := container.NewBorder(dataForm, nil, nil, nil, logEntry)
-	fmt.Printf("Adding backu %s\n", bac)
-	center.Add(container.NewMax(vbox))
 }
