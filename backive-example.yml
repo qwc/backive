@@ -40,6 +40,7 @@ backups:
 settings:
   systemMountPoint: /mnt/backups
   unixSocketLocation: /var/local/backive/backive.sock
+  uiUnixSocketLocation: /var/local/backive/ui.sock
   logLocation: /var/log/backive
   dbLocation: /var/lib/backive
 

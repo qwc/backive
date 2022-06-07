@@ -29,6 +29,7 @@ var (
 	config   backive.Configuration
 	database backive.Database
 	events   backive.EventHandler
+	uihdl    backive.UIHandler
 )
 
 func defaultCallback(envMap map[string]string) {
@@ -127,17 +128,22 @@ func main() {
 		if err != nil {
 			log.Printf("Removal of %s failed.", config.Settings.UnixSocketLocation)
 		}
+		err = os.Remove(config.Settings.UIUnixSocketLocation)
+		if err != nil {
+			log.Printf("Removal of %s failed.", config.Settings.UIUnixSocketLocation)
+		}
 		os.Exit(code)
 	}()
 
-	// TODO: do proper signal handling!
 	log.Println("backive starting up...")
 	// find and load config
 	database.Load()
 	config.Load()
 	setupLogging()
 	backive.Init(config, database)
-
+	uihdl.Init(config.Settings.UIUnixSocketLocation)
+	// Start UIHandler to be able to inform users through notifications
+	go uihdl.Listen()
 	// init scheduler and check for next needed runs?
 	// start event loop
 	events.Init(config.Settings.UnixSocketLocation)

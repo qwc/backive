@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"fyne.io/fyne/v2/app"
 
 	"github.com/qwc/backive"
@@ -20,7 +22,10 @@ func main() {
 	app := app.NewWithID("Backive UI")
 	backiveui.Init(app, nil, config, database)
 	go func() {
-		backiveui.NotificationRun()
+		for {
+			backiveui.NotificationRun()
+			time.Sleep(time.Second)
+		}
 	}()
 
 	app.Run()

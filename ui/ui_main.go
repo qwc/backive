@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
+	"net"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -16,16 +18,52 @@ var (
 	config         backive.Configuration
 	db             backive.Database
 	doNotShowUntil time.Time = time.Unix(0, 0)
+	c net.Conn
 )
 
-func Init(a fyne.App, w fyne.Window, c backive.Configuration, d backive.Database) {
+func Init(a fyne.App, w fyne.Window, conf backive.Configuration, d backive.Database) {
 	app = a
 	a.SetIcon(theme.FyneLogo())
 	makeTray(app)
-	config = c
+	config = conf
 	db = d
+	go PollConnection()
 }
+
+func PollConnection() {
+	var err error
+	for {
+		if c == nil {
+			c, err = net.Dial("unix", config.Settings.UIUnixSocketLocation)
+		} else {
+			err = fmt.Errorf("Connection already established")
+		}
+		if err != nil {
+			// ignore
+			err = nil
+			// sleep a while and then retry
+			time.Sleep(10 * time.Second)
+		}
+	}
+}
+
 func NotificationRun() {
+	if c != nil {
+		b := make([]byte, 2048)
+		i, err := c.Read(b)
+		if err == nil && i > 0 {
+			var data map[string]string
+			err = json.Unmarshal(b, &data)
+			if err == nil {
+				ShowNotification(data)
+			}
+			// else ignore and try to read again
+			err = nil
+		}
+		// we just try again and discard the error
+		err = nil
+	}
+	/*
 	if doNotShowUntil == time.Unix(0, 0) || time.Now().After(doNotShowUntil) {
 		ShowNotification()
 		if doNotShowUntil != time.Unix(0, 0) {
@@ -34,40 +72,22 @@ func NotificationRun() {
 	}
 	h, _ := time.ParseDuration("15m")
 	time.Sleep(h)
+	//*/
 }
 
-func ShowNotification() {
-	displayStr, err := MakeNotificationString()
-	if err == nil {
+func ShowNotification(data map[string]string) {
+	if ShallShow(data) {
 		app.SendNotification(
 			fyne.NewNotification(
-				"Backups are overdue...",
-				fmt.Sprintf("Name\t(device)\t[overdue]\n%s", displayStr),
+				data["header"],
+				data["message"],
 			),
 		)
 	}
 }
 
-func MakeNotificationString() (string, error) {
-	db.Load()
-	var displayStr string = ""
-	var runs backive.Runs
-	runs.Load(db)
-	fmt.Printf("Notification run\n")
-	for _, v := range config.Backups {
-		fmt.Printf("Notification run %s\n", v.Name)
-		if v.ShouldRun() && v.Frequency > 0 {
-			fmt.Printf("Notification for %s\n", v.Name)
-			lastBackup, err := runs.LastRun(v)
-			if err != nil {
-				return "", err
-			}
-			freq, _ := time.ParseDuration(fmt.Sprintf("%dd", v.Frequency))
-			days := time.Now().Sub(lastBackup.Add(freq))
-			displayStr += fmt.Sprintf("%s\t(%s)\t[%f days]\n", v.Name, v.TargetDevice, days.Hours()/24)
-		}
-	}
-	return displayStr, nil
+func ShallShow(data map[string]string) bool {
+	return true
 }
 
 func makeTray(app fyne.App) {
@@ -75,7 +95,6 @@ func makeTray(app fyne.App) {
 		menu := fyne.NewMenu(
 			"backive",
 			fyne.NewMenuItem("Show notifications again", func() {
-				ShowNotification()
 			}),
 			fyne.NewMenuItem("Hide notifications for today", func() {
 				doNotShowUntil = time.Now().AddDate(0, 0, 1)

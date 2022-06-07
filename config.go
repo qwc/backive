@@ -18,11 +18,12 @@ type Configuration struct {
 
 // Settings struct holds the global configuration items
 type Settings struct {
-	SystemMountPoint   string `mapstructure:"systemMountPoint"`
-	UserMountPoint     string `mapstructure:"userMountPoint"`
-	UnixSocketLocation string `mapstructure:"unixSocketLocation"`
-	LogLocation        string `mapstructure:"logLocation"`
-	DbLocation         string `mapstructure:"dbLocation"`
+	SystemMountPoint     string `mapstructure:"systemMountPoint"`
+	UserMountPoint       string `mapstructure:"userMountPoint"`
+	UnixSocketLocation   string `mapstructure:"unixSocketLocation"`
+	UIUnixSocketLocation string `mapstructure:"uiUnixSocketLocation"`
+	LogLocation          string `mapstructure:"logLocation"`
+	DbLocation           string `mapstructure:"dbLocation"`
 }
 
 // CreateViper creates a viper instance for usage later
