@@ -13,6 +13,11 @@ import (
 	"github.com/qwc/backive"
 )
 
+type UISettings struct {
+	hideUntil   time.Time
+	globalLevel int
+}
+
 var (
 	app            fyne.App
 	window         fyne.Window
@@ -20,6 +25,8 @@ var (
 	db             backive.Database
 	doNotShowUntil time.Time = time.Unix(0, 0)
 	c              net.Conn
+	uisettings     UISettings
+	messageLevel   int
 )
 
 func Init(a fyne.App, w fyne.Window, conf backive.Configuration, d backive.Database) {
@@ -85,16 +92,34 @@ func ShallShow(data map[string]string) bool {
 	if level <= 10 {
 		return true
 	}
-
-	return true
+	if int(level) <= uisettings.globalLevel && messageLevel > 0 {
+		return false
+	}
+	if int(level) <= uisettings.globalLevel {
+		return true
+	}
+	return false
 }
 
 func SetHideUntil(until time.Time) {
-
+	uisettings.hideUntil = until
 }
 
 func SetMessageLevel(level int) {
+	if level <= 10 {
+		messageLevel = level
+	} else {
+		uisettings.globalLevel = level
+		messageLevel = 0
+	}
+}
 
+func SaveSettings() {
+	// save internal settings to file in homedir
+}
+
+func LoadSettings() {
+	// load settings
 }
 
 func makeTray(app fyne.App) {
