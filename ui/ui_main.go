@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -18,7 +19,7 @@ var (
 	config         backive.Configuration
 	db             backive.Database
 	doNotShowUntil time.Time = time.Unix(0, 0)
-	c net.Conn
+	c              net.Conn
 )
 
 func Init(a fyne.App, w fyne.Window, conf backive.Configuration, d backive.Database) {
@@ -63,16 +64,6 @@ func NotificationRun() {
 		// we just try again and discard the error
 		err = nil
 	}
-	/*
-	if doNotShowUntil == time.Unix(0, 0) || time.Now().After(doNotShowUntil) {
-		ShowNotification()
-		if doNotShowUntil != time.Unix(0, 0) {
-			doNotShowUntil = time.Unix(0, 0)
-		}
-	}
-	h, _ := time.ParseDuration("15m")
-	time.Sleep(h)
-	//*/
 }
 
 func ShowNotification(data map[string]string) {
@@ -87,21 +78,68 @@ func ShowNotification(data map[string]string) {
 }
 
 func ShallShow(data map[string]string) bool {
+	level, err := strconv.ParseUint(data["level"], 10, 64)
+	if err != nil {
+		return false
+	}
+	if level <= 10 {
+		return true
+	}
+
 	return true
+}
+
+func SetHideUntil(until time.Time) {
+
+}
+
+func SetMessageLevel(level int) {
+
 }
 
 func makeTray(app fyne.App) {
 	if desk, ok := app.(desktop.App); ok {
+		hideReminders := fyne.NewMenuItem(
+			"Hide Reminders for",
+			nil,
+		)
+		hideReminders.ChildMenu = fyne.NewMenu(
+			"",
+			fyne.NewMenuItem("Hide reminder notifications for today", func() {
+				doNotShowUntil = time.Now().AddDate(0, 0, 1)
+				SetHideUntil(doNotShowUntil)
+			}),
+			fyne.NewMenuItem("Hide reminder notifications for a hour", func() {
+				doNotShowUntil = time.Now().Add(time.Hour)
+				SetHideUntil(doNotShowUntil)
+			}),
+		)
+		levelMenu := fyne.NewMenuItem(
+			"Set notification level", nil,
+		)
+		levelMenu.ChildMenu = fyne.NewMenu(
+			"",
+			fyne.NewMenuItem(
+				"Only problems and tasks finished (resets to default with restart)",
+				func() { SetMessageLevel(10) },
+			),
+			fyne.NewMenuItem(
+				"+ Reminders (default)",
+				func() { SetMessageLevel(20) },
+			),
+			fyne.NewMenuItem(
+				"+ Informational messages",
+				func() { SetMessageLevel(30) },
+			),
+			fyne.NewMenuItem(
+				"+ Verbose/Debug messages",
+				func() { SetMessageLevel(40) },
+			),
+		)
 		menu := fyne.NewMenu(
 			"backive",
-			fyne.NewMenuItem("Show notifications again", func() {
-			}),
-			fyne.NewMenuItem("Hide notifications for today", func() {
-				doNotShowUntil = time.Now().AddDate(0, 0, 1)
-			}),
-			fyne.NewMenuItem("Hide notifications for a hour", func() {
-				doNotShowUntil = time.Now().Add(time.Hour)
-			}),
+			hideReminders,
+			levelMenu,
 		)
 		desk.SetSystemTrayMenu(menu)
 	}
