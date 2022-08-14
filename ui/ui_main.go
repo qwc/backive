@@ -144,16 +144,16 @@ func LoadSettings() {
 func makeTray(app fyne.App) {
 	if desk, ok := app.(desktop.App); ok {
 		hideReminders := fyne.NewMenuItem(
-			"Hide Reminders for",
+			"Hide reminders for",
 			nil,
 		)
 		hideReminders.ChildMenu = fyne.NewMenu(
 			"",
-			fyne.NewMenuItem("Hide reminder notifications for today", func() {
+			fyne.NewMenuItem("today", func() {
 				doNotShowUntil = time.Now().AddDate(0, 0, 1)
 				SetHideUntil(doNotShowUntil)
 			}),
-			fyne.NewMenuItem("Hide reminder notifications for a hour", func() {
+			fyne.NewMenuItem("a hour", func() {
 				doNotShowUntil = time.Now().Add(time.Hour)
 				SetHideUntil(doNotShowUntil)
 			}),
