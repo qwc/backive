@@ -9,9 +9,12 @@ on:
 jobs:
 
   build:
-    runs-on: ubuntu-desktop-latest
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: setup runner
+      run: |
+        sudo apt install xorg-server
 
     - name: Set up Go
       uses: actions/setup-go@v2

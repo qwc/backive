@@ -43,7 +43,9 @@ func Init(a fyne.App, w fyne.Window, conf backive.Configuration) {
 	config = conf
 	apphomedir, _ := os.UserHomeDir()
 	apphomedir += string(os.PathSeparator) + ".config" + string(os.PathSeparator) + "backive" + string(os.PathSeparator) + "ui.json"
+	LoadSettings()
 	go PollConnection()
+	fmt.Println("UI started")
 }
 
 // PollConnection polls in an endless loop the connection
@@ -97,6 +99,7 @@ func ShallShow(data map[string]string) bool {
 // SetHideUntil sets the time until messages should be hidden
 func SetHideUntil(until time.Time) {
 	uisettings.hideUntil = until
+	SaveSettings()
 }
 
 // SetMessageLevel does exactly that.
@@ -124,6 +127,7 @@ func SaveSettings() {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("Saved Settings.")
 }
 
 // LoadSettings loads the settings from the place where SaveSettings stored them.
@@ -135,6 +139,7 @@ func LoadSettings() {
 			panic(rferr)
 		}
 		json.Unmarshal(data, &uisettings)
+		fmt.Println("Loaded Settings.")
 	} /*else if os.IsNotExist(err) {
 		// no data
 	}*/
