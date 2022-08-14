@@ -19,7 +19,7 @@ import (
 var mockOsWriteFile = os.WriteFile
 var mockOsReadFile = os.ReadFile
 
-type UISettings struct {
+type uiSettings struct {
 	hideUntil   time.Time
 	globalLevel int
 }
@@ -30,11 +30,12 @@ var (
 	config         backive.Configuration
 	doNotShowUntil time.Time = time.Unix(0, 0)
 	c              net.Conn
-	uisettings     UISettings
+	uisettings     uiSettings
 	messageLevel   int
 	apphomedir     string
 )
 
+// Init the fyne application
 func Init(a fyne.App, w fyne.Window, conf backive.Configuration) {
 	app = a
 	a.SetIcon(theme.FyneLogo())
@@ -45,6 +46,7 @@ func Init(a fyne.App, w fyne.Window, conf backive.Configuration) {
 	go PollConnection()
 }
 
+// PollConnection polls in an endless loop the connection
 func PollConnection() {
 	var err error
 	for {
@@ -62,24 +64,7 @@ func PollConnection() {
 	}
 }
 
-func NotificationRun() {
-	if c != nil {
-		b := make([]byte, 2048)
-		i, err := c.Read(b)
-		if err == nil && i > 0 {
-			var data map[string]string
-			err = json.Unmarshal(b, &data)
-			if err == nil {
-				ShowNotification(data)
-			}
-			// else ignore and try to read again
-			err = nil
-		}
-		// we just try again and discard the error
-		err = nil
-	}
-}
-
+// ShowNotification shows a single notification
 func ShowNotification(data map[string]string) {
 	if ShallShow(data) {
 		app.SendNotification(
@@ -91,6 +76,7 @@ func ShowNotification(data map[string]string) {
 	}
 }
 
+// ShallShow checks if a message should be shown by level
 func ShallShow(data map[string]string) bool {
 	level, err := strconv.ParseUint(data["level"], 10, 64)
 	if err != nil {
@@ -108,10 +94,12 @@ func ShallShow(data map[string]string) bool {
 	return false
 }
 
+// SetHideUntil sets the time until messages should be hidden
 func SetHideUntil(until time.Time) {
 	uisettings.hideUntil = until
 }
 
+// SetMessageLevel does exactly that.
 func SetMessageLevel(level int) {
 	if level <= 10 {
 		messageLevel = level
@@ -122,6 +110,7 @@ func SetMessageLevel(level int) {
 	}
 }
 
+// SaveSettings stores the settings in $HOME/.config/backive/ui.json
 func SaveSettings() {
 	// save internal settings to file in homedir
 	jsonstr, merr := json.Marshal(uisettings)
@@ -137,6 +126,7 @@ func SaveSettings() {
 	}
 }
 
+// LoadSettings loads the settings from the place where SaveSettings stored them.
 func LoadSettings() {
 	// load settings
 	if _, err := os.Stat(apphomedir); err == nil {
@@ -150,6 +140,7 @@ func LoadSettings() {
 	}*/
 }
 
+// makeTray creates the tray menus needed.
 func makeTray(app fyne.App) {
 	if desk, ok := app.(desktop.App); ok {
 		hideReminders := fyne.NewMenuItem(
