@@ -15,7 +15,7 @@ jobs:
     - name: setup runner
       run: |
         # sudo apt search xorg
-        sudo apt-get install -y xserver-xorg libxcursor-dev libxrandr-dev libxinerama-dev libxcb-xinput-dev
+        sudo apt-get install -y xserver-xorg libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev
 
     - name: Set up Go
       uses: actions/setup-go@v2
