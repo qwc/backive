@@ -15,7 +15,7 @@ jobs:
     - name: setup runner
       run: |
         # sudo apt search xorg
-        sudo apt install -y xserver-xorg libxcursor
+        sudo apt-get install -y xserver-xorg libxcursor-dev
 
     - name: Set up Go
       uses: actions/setup-go@v2
