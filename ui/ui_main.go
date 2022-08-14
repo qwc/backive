@@ -3,7 +3,10 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
+	"os"
+	"path"
 	"strconv"
 	"time"
 
@@ -12,6 +15,9 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"github.com/qwc/backive"
 )
+
+var mockOsWriteFile = os.WriteFile
+var mockOsReadFile = os.ReadFile
 
 type UISettings struct {
 	hideUntil   time.Time
@@ -22,19 +28,20 @@ var (
 	app            fyne.App
 	window         fyne.Window
 	config         backive.Configuration
-	db             backive.Database
 	doNotShowUntil time.Time = time.Unix(0, 0)
 	c              net.Conn
 	uisettings     UISettings
 	messageLevel   int
+	apphomedir     string
 )
 
-func Init(a fyne.App, w fyne.Window, conf backive.Configuration, d backive.Database) {
+func Init(a fyne.App, w fyne.Window, conf backive.Configuration) {
 	app = a
 	a.SetIcon(theme.FyneLogo())
 	makeTray(app)
 	config = conf
-	db = d
+	apphomedir, _ := os.UserHomeDir()
+	apphomedir += string(os.PathSeparator) + ".config" + string(os.PathSeparator) + "backive" + string(os.PathSeparator) + "ui.json"
 	go PollConnection()
 }
 
@@ -111,15 +118,36 @@ func SetMessageLevel(level int) {
 	} else {
 		uisettings.globalLevel = level
 		messageLevel = 0
+		SaveSettings()
 	}
 }
 
 func SaveSettings() {
 	// save internal settings to file in homedir
+	jsonstr, merr := json.Marshal(uisettings)
+	if merr != nil {
+		panic(merr)
+	}
+	log.Printf("Writing database output to file: %s", jsonstr)
+	saveDir, _ := path.Split(apphomedir)
+	backive.CreateDirectoryIfNotExists(saveDir)
+	err := mockOsWriteFile(apphomedir, []byte(jsonstr), 0644)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func LoadSettings() {
 	// load settings
+	if _, err := os.Stat(apphomedir); err == nil {
+		data, rferr := mockOsReadFile(apphomedir)
+		if rferr != nil {
+			panic(rferr)
+		}
+		json.Unmarshal(data, &uisettings)
+	} /*else if os.IsNotExist(err) {
+		// no data
+	}*/
 }
 
 func makeTray(app fyne.App) {
@@ -145,7 +173,7 @@ func makeTray(app fyne.App) {
 		levelMenu.ChildMenu = fyne.NewMenu(
 			"",
 			fyne.NewMenuItem(
-				"Only problems and tasks finished (resets to default with restart)",
+				"Only problems and tasks finished (resets to previous with restart)",
 				func() { SetMessageLevel(10) },
 			),
 			fyne.NewMenuItem(

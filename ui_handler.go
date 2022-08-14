@@ -8,6 +8,19 @@ import (
 	"path"
 )
 
+// MsgLevel type for setting the message level
+type MsgLevel int
+
+// Constants for setting the MsgLevel
+const (
+	ERROR MsgLevel = iota * 10
+	FINISH
+	REMIND
+	INFO
+	DEBUG
+)
+
+// UIHandler internal data struct
 type UIHandler struct {
 	ls     net.Listener
 	client net.Conn
@@ -18,6 +31,7 @@ var mockUIAccept = func(uh *UIHandler) (net.Conn, error) {
 	return uh.ls.Accept()
 }
 
+// Init initializing the UIHandler
 func (uh *UIHandler) Init(socketPath string) error {
 	log.Println("Initializing UIHandler")
 	var err error
@@ -30,6 +44,7 @@ func (uh *UIHandler) Init(socketPath string) error {
 	return nil
 }
 
+// Listen starts the Unix socket listener
 func (uh *UIHandler) Listen() {
 	log.Println("Running UIHandler loop")
 	func() {
@@ -43,6 +58,7 @@ func (uh *UIHandler) Listen() {
 	}()
 }
 
+// DisplayMessage is the method to use inside the service to display messages, with intended level
 func (uh *UIHandler) DisplayMessage(header string, message string, level int) error {
 	if uh.client != nil {
 		var data map[string]interface{}
@@ -56,8 +72,7 @@ func (uh *UIHandler) DisplayMessage(header string, message string, level int) er
 		}
 		uh.client.Write(b)
 		return nil
-	} else {
-		log.Println("No UI client available, msg did not get delivered.")
-		return fmt.Errorf("No UI client available, msg not delivered.")
 	}
+	log.Println("No UI client available, msg did not get delivered.")
+	return fmt.Errorf("No UI client available, msg not delivered")
 }
