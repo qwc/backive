@@ -14,8 +14,8 @@ jobs:
     - uses: actions/checkout@v2
     - name: setup runner
       run: |
-        sudo apt search xorg
-        sudo apt install xorg-server
+        # sudo apt search xorg
+        sudo apt install xserver-xorg
 
     - name: Set up Go
       uses: actions/setup-go@v2
