@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -42,26 +44,64 @@ func Init(a fyne.App, w fyne.Window, conf backive.Configuration) {
 	makeTray(app)
 	config = conf
 	apphomedir, _ := os.UserHomeDir()
-	apphomedir += string(os.PathSeparator) + ".config" + string(os.PathSeparator) + "backive" + string(os.PathSeparator) + "ui.json"
+	apphomedir = path.Join(apphomedir, ".config", "backive", "ui.json")
 	LoadSettings()
 	go PollConnection()
-	fmt.Println("UI started")
+	log.Println("UI started")
 }
 
 // PollConnection polls in an endless loop the connection
 func PollConnection() {
 	var err error
+	// Loop for connection and receiving data
 	for {
+		// connect when client 'c' is nil
 		if c == nil {
+			log.Println("Creating connection")
 			c, err = net.Dial("unix", config.Settings.UIUnixSocketLocation)
 		} else {
 			err = fmt.Errorf("Connection already established")
+			log.Println(err)
 		}
+		// handle error on connection
 		if err != nil {
+			log.Println(err)
 			// ignore
 			err = nil
+			c = nil
 			// sleep a while and then retry
 			time.Sleep(10 * time.Second)
+		}
+		// receive msgs
+		if c != nil {
+			data := make([]byte, 2048)
+			for {
+				buf := make([]byte, 512)
+				nr, err := c.Read(buf)
+				log.Printf("Read %d bytes...", nr)
+				if err == io.ErrClosedPipe {
+					c = nil
+					err = nil
+					break
+				}
+				if err != nil && err != io.EOF {
+					log.Println(err)
+					break
+				}
+				data = append(data, buf[0:nr]...)
+				if err == io.EOF {
+					break
+				}
+			}
+			sdata := string(bytes.Trim(data, "\x00"))
+			var message map[string]string
+			log.Printf("Reading JSON: %s", sdata)
+			errjson := json.Unmarshal([]byte(sdata), &message)
+			if errjson != nil {
+				log.Println(errjson)
+				continue
+			}
+			ShowNotification(message)
 		}
 	}
 }
@@ -127,7 +167,7 @@ func SaveSettings() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Saved Settings.")
+	log.Println("Saved Settings.")
 }
 
 // LoadSettings loads the settings from the place where SaveSettings stored them.
@@ -139,7 +179,7 @@ func LoadSettings() {
 			panic(rferr)
 		}
 		json.Unmarshal(data, &uisettings)
-		fmt.Println("Loaded Settings.")
+		log.Println("Loaded Settings.")
 	} /*else if os.IsNotExist(err) {
 		// no data
 	}*/

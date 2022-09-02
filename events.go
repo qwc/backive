@@ -53,6 +53,7 @@ func (eh *EventHandler) RegisterCallback(cb func(map[string]string)) {
 func (eh *EventHandler) process() {
 	client, err := mockAccept(eh)
 	log.Println("Accepted client")
+	UiHdl.DisplayMessage("Event debugging", "Catched event...", MsgLevels.Debug)
 	if err != nil {
 		log.Println(err)
 		return
@@ -86,6 +87,7 @@ func (eh *EventHandler) process() {
 		for k, v := range message["data"].(map[string]interface{}) {
 			env[k] = v.(string)
 		}
+		UiHdl.DisplayMessage("Event debugging", "Got udev event msg.", MsgLevels.Debug)
 	}
 	for _, v := range eh.callbacks {
 		if v != nil {

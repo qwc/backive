@@ -29,7 +29,6 @@ var (
 	config   backive.Configuration
 	database backive.Database
 	events   backive.EventHandler
-	uihdl    backive.UIHandler
 )
 
 func defaultCallback(envMap map[string]string) {
@@ -141,9 +140,9 @@ func main() {
 	config.Load()
 	setupLogging()
 	backive.Init(config, database)
-	uihdl.Init(config.Settings.UIUnixSocketLocation)
+	backive.UiHdl.Init(config.Settings.UIUnixSocketLocation)
 	// Start UIHandler to be able to inform users through notifications
-	go uihdl.Listen()
+	go backive.UiHdl.Listen()
 	// init scheduler and check for next needed runs?
 	// start event loop
 	events.Init(config.Settings.UnixSocketLocation)
