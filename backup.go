@@ -93,6 +93,7 @@ func (b *Backup) PrepareRun() error {
 // Run runs the backup script with appropriate rights.
 func (b *Backup) Run() error {
 	log.Printf("Running backup '%s'.", b.Name)
+	UiHdl.DisplayMessage("Backive backup", fmt.Sprintf("Running backup '%s'...", b.Name), MsgLevels.Info)
 	dev, ok := config.Devices[b.TargetDevice]
 	if ok {
 		log.Printf("Device found: %s (%s).", dev.Name, dev.UUID)
@@ -157,6 +158,7 @@ func (b *Backup) Run() error {
 			return err
 		}
 		runs.RegisterRun(b)
+		UiHdl.DisplayMessage("Backive backup", fmt.Sprintf("Finished backup '%s'", b.Name), MsgLevels.Info)
 		return nil
 	}
 	// quit with error that the device is not available.

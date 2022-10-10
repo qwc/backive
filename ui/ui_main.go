@@ -3,8 +3,6 @@ package ui
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -59,10 +57,7 @@ func PollConnection() {
 		if c == nil {
 			log.Println("Creating connection")
 			c, err = net.Dial("unix", config.Settings.UIUnixSocketLocation)
-		} else {
-			err = fmt.Errorf("Connection already established")
-			log.Println(err)
-		}
+		} // else already connected
 		// handle error on connection
 		if err != nil {
 			log.Println(err)
@@ -75,23 +70,11 @@ func PollConnection() {
 		// receive msgs
 		if c != nil {
 			data := make([]byte, 2048)
-			for {
-				buf := make([]byte, 512)
-				nr, err := c.Read(buf)
-				log.Printf("Read %d bytes...", nr)
-				if err == io.ErrClosedPipe {
-					c = nil
-					err = nil
-					break
-				}
-				if err != nil && err != io.EOF {
-					log.Println(err)
-					break
-				}
-				data = append(data, buf[0:nr]...)
-				if err == io.EOF {
-					break
-				}
+			nr, err := c.Read(data)
+			log.Printf("Read %d bytes...", nr)
+			if err != nil {
+				log.Println(err)
+				break
 			}
 			sdata := string(bytes.Trim(data, "\x00"))
 			var message map[string]string
@@ -124,7 +107,7 @@ func ShallShow(data map[string]string) bool {
 	if err != nil {
 		return false
 	}
-	if level <= 10 {
+	if level <= 30 {
 		return true
 	}
 	if int(level) <= uisettings.globalLevel && messageLevel > 0 {

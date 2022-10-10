@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"path"
 )
 
@@ -49,6 +50,7 @@ func (uh *UIHandler) Init(socketPath string) error {
 	dir, _ := path.Split(socketPath)
 	CreateDirectoryIfNotExists(dir)
 	uh.ls, err = net.Listen("unix", socketPath)
+	os.Chmod(socketPath, 0777)
 	if err != nil {
 		log.Printf("Error: %s", err)
 		return err
@@ -79,8 +81,8 @@ func (uh *UIHandler) Listen() {
 // DisplayMessage is the method to use inside the service to display messages, with intended level
 func (uh *UIHandler) DisplayMessage(header string, message string, level MsgLevel) error {
 	if uh.client != nil {
-		var data map[string]interface{}
-		data["level"] = int(level)
+		var data = make(map[string]string)
+		data["level"] = fmt.Sprint(level)
 		data["header"] = header
 		data["message"] = message
 		b, err := json.Marshal(data)

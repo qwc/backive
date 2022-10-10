@@ -74,10 +74,14 @@ func defaultCallback(envMap map[string]string) {
 						if rerr != nil {
 							log.Printf("Error running the backup routine: %v", err)
 						}
-						dev.Unmount()
 					} else {
-						log.Printf("Backup '%s' can not run (error or frequency not reached): %s", backup.Name, err)
+						msg := fmt.Sprintf("Backup '%s' can not run (error or frequency not reached): %s", backup.Name, err)
+						log.Printf(msg)
+						backive.UiHdl.DisplayMessage("Backive backup", msg, backive.MsgLevels.Info)
 					}
+				}
+				if dev.IsMounted() {
+					dev.Unmount()
 				}
 			} else {
 				log.Println("No backup found.")
