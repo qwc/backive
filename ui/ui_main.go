@@ -58,33 +58,38 @@ func PollConnection() {
 			log.Println("Creating connection")
 			c, err = net.Dial("unix", config.Settings.UIUnixSocketLocation)
 		} // else already connected
+		// receive msgs
+		if c != nil && err == nil {
+			data := make([]byte, 2048)
+			nr, err := c.Read(data)
+			log.Printf("Read %d bytes...", nr)
+			if err != nil {
+				log.Printf("Error reading data from socket: %s", err)
+				c = nil
+			}
+			if err == nil {
+				sdata := string(bytes.Trim(data, "\x00"))
+				var message map[string]string
+				log.Printf("Reading JSON: %s", sdata)
+				errjson := json.Unmarshal([]byte(sdata), &message)
+				if errjson != nil {
+					err = errjson
+					log.Printf("Error parsing json: %s", errjson)
+					c = nil
+				}
+				if errjson == nil {
+					ShowNotification(message)
+				}
+			}
+		}
 		// handle error on connection
 		if err != nil {
-			log.Println(err)
+			log.Printf("Error during communication: %s", err)
 			// ignore
 			err = nil
 			c = nil
 			// sleep a while and then retry
 			time.Sleep(10 * time.Second)
-		}
-		// receive msgs
-		if c != nil {
-			data := make([]byte, 2048)
-			nr, err := c.Read(data)
-			log.Printf("Read %d bytes...", nr)
-			if err != nil {
-				log.Println(err)
-				break
-			}
-			sdata := string(bytes.Trim(data, "\x00"))
-			var message map[string]string
-			log.Printf("Reading JSON: %s", sdata)
-			errjson := json.Unmarshal([]byte(sdata), &message)
-			if errjson != nil {
-				log.Println(errjson)
-				continue
-			}
-			ShowNotification(message)
 		}
 	}
 }
