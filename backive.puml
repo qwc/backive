@@ -1,0 +1,121 @@
+@startuml
+namespace backive {
+    class Backup << (S,Aquamarine) >> {
+        - logger *log.Logger
+
+        + Name string
+        + TargetDevice string
+        + TargetPath string
+        + SourcePath string
+        + ScriptPath <font color=blue>interface</font>{}
+        + Frequency int
+        + ExeUser string
+        + Label string
+
+        + CanRun() error
+        + PrepareRun() error
+        + Run() error
+        + ShouldRun() bool
+
+    }
+    class Backups << (S,Aquamarine) >> {
+        + FindBackupsForDevice(d Device) ([]*Backup, bool)
+
+    }
+    class Configuration << (S,Aquamarine) >> {
+        + Settings Settings
+        + Devices Devices
+        + Backups Backups
+        + Vconfig *viper.Viper
+
+        + CreateViper() 
+        + Load() 
+
+    }
+    class Database << (S,Aquamarine) >> {
+        - data <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+
+        + Save() 
+        + Load() 
+
+    }
+    class Device << (S,Aquamarine) >> {
+        - isMounted bool
+
+        + Name string
+        + UUID string
+        + OwnerUser string
+
+        + Mount() error
+        + Unmount() error
+        + IsMounted() bool
+
+    }
+    class EventHandler << (S,Aquamarine) >> {
+        - ls net.Listener
+        - callbacks []<font color=blue>func</font>(<font color=blue>map</font>[string]string) 
+
+        - process() 
+
+        + Init(socketPath string) error
+        + Listen() 
+        + RegisterCallback(cb <font color=blue>func</font>(<font color=blue>map</font>[string]string) ) 
+
+    }
+    class MsgLvls << (S,Aquamarine) >> {
+        + Error MsgLevel
+        + Finish MsgLevel
+        + Remind MsgLevel
+        + Info MsgLevel
+        + Debug MsgLevel
+
+    }
+    class Runs << (S,Aquamarine) >> {
+        - data <font color=blue>map</font>[string][]time.Time
+
+        + Load(db Database) 
+        + Save(db Database) 
+        + RegisterRun(b *Backup) 
+        + LastRun(b *Backup) (time.Time, error)
+
+    }
+    class Settings << (S,Aquamarine) >> {
+        + SystemMountPoint string
+        + UserMountPoint string
+        + UnixSocketLocation string
+        + UIUnixSocketLocation string
+        + LogLocation string
+        + DbLocation string
+
+    }
+    class UIHandler << (S,Aquamarine) >> {
+        - ls net.Listener
+        - client net.Conn
+
+        + Init(socketPath string) error
+        + Listen() 
+        + DisplayMessage(header string, message string, level MsgLevel) error
+
+    }
+    class backive.Backups << (T, #FF7700) >>  {
+    }
+    class backive.Devices << (T, #FF7700) >>  {
+    }
+    class backive.MsgLevel << (T, #FF7700) >>  {
+    }
+}
+
+
+namespace ui {
+    class uiSettings << (S,Aquamarine) >> {
+        - hideUntil time.Time
+        - globalLevel int
+
+    }
+}
+
+
+"__builtin__.int" #.. "backive.MsgLevel"
+"backive.<font color=blue>map</font>[string]*Backup" #.. "backive.Backups"
+"backive.<font color=blue>map</font>[string]*Device" #.. "backive.Devices"
+@enduml

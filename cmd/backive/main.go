@@ -55,14 +55,19 @@ func defaultCallback(envMap map[string]string) {
 			log.Printf("Device: Name: %s, UUID: %s", dev.Name, dev.UUID)
 			backups, found := config.Backups.FindBackupsForDevice(*dev)
 			log.Println("Searching configured backups...")
+			bnames := make([]string, 0)
+			for _, v := range backups {
+				bnames = append(bnames, v.Name)
+			}
+			log.Printf("Found backups: %s", bnames)
 			if found {
+				// only mount device if we really have to do a backup!
+				dev.Mount()
+				log.Println("Device mounted.")
 				for _, backup := range backups {
-					log.Printf("Backup found: %s", backup.Name)
+					log.Printf("Backup running: %s", backup.Name)
 					err := backup.CanRun()
 					if err == nil {
-						// only mount device if we really have to do a backup!
-						dev.Mount()
-						log.Println("Device mounted.")
 						log.Println("Backup is able to run (config check passed).")
 						prepErr := backup.PrepareRun()
 						log.Println("Prepared run.")

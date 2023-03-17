@@ -70,12 +70,12 @@ func (c *Configuration) Load() {
 		panic("No configuration available!")
 	}
 	for k, v := range c.Backups {
-		log.Printf("Initializing backup '%s'\n", k)
+		//log.Printf("Initializing backup '%s'\n", k)
 		v.Name = k
 		log.Printf("Initialized backup '%s'\n", v.Name)
 	}
 	for k, v := range c.Devices {
-		log.Printf("Initializing device '%s'\n", k)
+		//log.Printf("Initializing device '%s'\n", k)
 		v.Name = k
 		log.Printf("Initialized device '%s'\n", v.Name)
 	}

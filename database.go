@@ -12,7 +12,7 @@ var mockOsReadFile = os.ReadFile
 
 // Database is a simple string to string mapping, where arbitrary strings can be stored and safed to disk or loaded
 type Database struct {
-	data map[string]string
+	data map[string]interface{}
 }
 
 var dbPath = "/var/lib/backive/data.json"
@@ -40,7 +40,8 @@ func (d *Database) Load() {
 			panic(rferr)
 		}
 		json.Unmarshal(data, &d.data)
-	} /*else if os.IsNotExist(err) {
-		// no data
-	}*/
+	} else if os.IsNotExist(err) {
+		// initialize db
+		d.data = make(map[string]interface{})
+	}
 }
