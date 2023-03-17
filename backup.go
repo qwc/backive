@@ -93,6 +93,7 @@ func (b *Backup) PrepareRun() error {
 // Run runs the backup script with appropriate rights.
 func (b *Backup) Run() error {
 	log.Printf("Running backup '%s'.", b.Name)
+	UiHdl.DisplayMessage("Backive backup", fmt.Sprintf("Running backup '%s'...", b.Name), MsgLevels.Info)
 	dev, ok := config.Devices[b.TargetDevice]
 	if ok {
 		log.Printf("Device found: %s (%s).", dev.Name, dev.UUID)
@@ -102,15 +103,14 @@ func (b *Backup) Run() error {
 	}
 	if ok && dev.IsMounted() {
 		var scriptWArgs []string
+		// ScriptPath may be an slice/array of a script path with parameters or just a string with a script path
 		switch slice := b.ScriptPath.(type) {
 		case []interface{}:
 			for _, v := range slice {
 				scriptWArgs = append(scriptWArgs, v.(string))
 			}
 		case []string:
-			for _, v := range slice {
-				scriptWArgs = append(scriptWArgs, v)
-			}
+			scriptWArgs = append(scriptWArgs, slice...)
 		case string:
 			scriptWArgs = append(scriptWArgs, slice)
 		default:
@@ -156,6 +156,7 @@ func (b *Backup) Run() error {
 			return err
 		}
 		runs.RegisterRun(b)
+		UiHdl.DisplayMessage("Backive backup", fmt.Sprintf("Finished backup '%s'", b.Name), MsgLevels.Info)
 		return nil
 	}
 	// quit with error that the device is not available.
@@ -170,24 +171,53 @@ type Runs struct {
 // Load loads the data from the json database
 func (r *Runs) Load(db Database) {
 	data := db.data["runs"]
-	if data != "" {
-		runerr := json.Unmarshal([]byte(db.data["runs"]), &r.data)
-		if runerr != nil {
-			panic(runerr)
+	if data != nil {
+		log.Println("Loading runs db")
+		switch d := data.(type) {
+		case string:
+			// be able to read the old version
+			log.Println("Loading legacy data")
+			runerr := json.Unmarshal([]byte(data.(string)), &r.data)
+			if runerr != nil {
+				panic(runerr)
+			}
+		case map[string]interface{}:
+			log.Println("Loading data")
+			if r.data == nil {
+				r.data = make(map[string][]time.Time)
+			}
+			raw := data.(map[string]interface{})
+			for k, v := range raw {
+				r.data[k] = make([]time.Time, 0)
+				for _, i := range v.([]interface{}) {
+					t, _ := time.Parse(time.RFC3339Nano, i.(string))
+					r.data[k] = append(r.data[k], t)
+				}
+			}
+			LogToJson(data)
+		default:
+			log.Printf("got data type: %s", d)
 		}
 	}
+	log.Println("Data loaded:")
+	LogToJson(r.data)
 }
 
 // Save saves the data into the json database
 func (r *Runs) Save(db Database) {
 	if db.data == nil {
-		db.data = map[string]string{}
+		db.data = map[string]interface{}{}
 	}
-	str, err := json.Marshal(r.data)
+	db.data["runs"] = r.data
+	LogToJson(db.data)
+}
+
+func LogToJson(data interface{}) {
+	str, err := json.Marshal(data)
 	if err != nil {
 		panic(err)
 	}
-	db.data["runs"] = string(str)
+	log.Printf("Data: %s", str)
 }
 
 // ShouldRun Takes a backup key and returns a bool if a backup should run now.
@@ -205,17 +235,21 @@ func (b *Backup) ShouldRun() bool {
 	if freq == 0 {
 		return true
 	}
+	if ok != nil && lr.Equal(time.Unix(0, 0)) {
+		return true
+	}
 	return false
 }
 
 // RegisterRun saves a date of a backup run into the internal storage
 func (r *Runs) RegisterRun(b *Backup) {
 	if r.data == nil {
-		r.data = map[string][]time.Time{}
+		x := map[string][]time.Time{}
+		r.data = x
 	}
 	nbl, ok := r.data[b.Name]
 	if !ok {
-		nbl = make([]time.Time, 1)
+		nbl = make([]time.Time, 0)
 	}
 	nbl = append([]time.Time{time.Now()}, nbl...)
 	r.data[b.Name] = nbl

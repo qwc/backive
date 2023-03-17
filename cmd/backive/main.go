@@ -55,14 +55,19 @@ func defaultCallback(envMap map[string]string) {
 			log.Printf("Device: Name: %s, UUID: %s", dev.Name, dev.UUID)
 			backups, found := config.Backups.FindBackupsForDevice(*dev)
 			log.Println("Searching configured backups...")
+			bnames := make([]string, 0)
+			for _, v := range backups {
+				bnames = append(bnames, v.Name)
+			}
+			log.Printf("Found backups: %s", bnames)
 			if found {
+				// only mount device if we really have to do a backup!
+				dev.Mount()
+				log.Println("Device mounted.")
 				for _, backup := range backups {
-					log.Printf("Backup found: %s", backup.Name)
+					log.Printf("Backup running: %s", backup.Name)
 					err := backup.CanRun()
 					if err == nil {
-						// only mount device if we really have to do a backup!
-						dev.Mount()
-						log.Println("Device mounted.")
 						log.Println("Backup is able to run (config check passed).")
 						prepErr := backup.PrepareRun()
 						log.Println("Prepared run.")
@@ -74,10 +79,14 @@ func defaultCallback(envMap map[string]string) {
 						if rerr != nil {
 							log.Printf("Error running the backup routine: %v", err)
 						}
-						dev.Unmount()
 					} else {
-						log.Printf("Backup '%s' can not run (error or frequency not reached): %s", backup.Name, err)
+						msg := fmt.Sprintf("Backup '%s' can not run (error or frequency not reached): %s", backup.Name, err)
+						log.Printf(msg)
+						backive.UiHdl.DisplayMessage("Backive backup", msg, backive.MsgLevels.Info)
 					}
+				}
+				if dev.IsMounted() {
+					dev.Unmount()
 				}
 			} else {
 				log.Println("No backup found.")
@@ -127,17 +136,22 @@ func main() {
 		if err != nil {
 			log.Printf("Removal of %s failed.", config.Settings.UnixSocketLocation)
 		}
+		err = os.Remove(config.Settings.UIUnixSocketLocation)
+		if err != nil {
+			log.Printf("Removal of %s failed.", config.Settings.UIUnixSocketLocation)
+		}
 		os.Exit(code)
 	}()
 
-	// TODO: do proper signal handling!
 	log.Println("backive starting up...")
 	// find and load config
 	database.Load()
 	config.Load()
 	setupLogging()
 	backive.Init(config, database)
-
+	backive.UiHdl.Init(config.Settings.UIUnixSocketLocation)
+	// Start UIHandler to be able to inform users through notifications
+	go backive.UiHdl.Listen()
 	// init scheduler and check for next needed runs?
 	// start event loop
 	events.Init(config.Settings.UnixSocketLocation)

@@ -170,3 +170,5 @@ func TestRun(t *testing.T) {
 		return nil
 	}
 }
+
+// TODO: write a test for the lastRun method!

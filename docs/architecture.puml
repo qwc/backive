@@ -1,0 +1,27 @@
+@startuml
+
+actor User
+
+control udev
+
+interface JSONunixsocket
+interface JSON_UIunixsocket
+
+component udev_helper
+component backive
+component notifications
+
+User --> udev : plugs in hard disk
+udev --> udev_helper: calls
+
+udev_helper --( JSONunixsocket : sends device data to
+
+backive --( JSONunixsocket : provides
+
+notifications --( JSON_UIunixsocket: waits for notifications
+
+JSON_UIunixsocket )-- backive : provides
+
+User <- notifications: is informed through
+
+@enduml
